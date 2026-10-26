@@ -69,6 +69,7 @@ class AppState extends ChangeNotifier {
 
   static const _kunciSimpan = 'tipsen.data.v2';
   static const _kunciSesi = 'tipsen.sesi.v2';
+  static const _kunciFoto = 'tipsen.foto.v1';
 
   SharedPreferences? _prefs;
   bool siap = false;
@@ -110,6 +111,63 @@ class AppState extends ChangeNotifier {
         jadwal: 'Senin – Jumat · 08:00 – 17:00',
         peran: PeranAkun.adminHC,
       );
+
+  // ── Foto profil ──────────────────────────────────────────────
+  // Disimpan di kunci terpisah dari data utama supaya penyimpanan data
+  // presensi tidak ikut gagal ketika kuota localStorage menipis.
+  Uint8List? _fotoKaryawan;
+  Uint8List? _fotoAdmin;
+
+  /// Foto profil akun yang sedang aktif (karyawan atau HC).
+  Uint8List? get fotoProfil =>
+      peran == PeranAkun.adminHC ? _fotoAdmin : _fotoKaryawan;
+
+  /// Foto profil akun HC (dipakai portal HC tanpa bergantung pada sesi).
+  Uint8List? get fotoAdmin => _fotoAdmin;
+
+  /// Simpan foto profil. `bytes` diharapkan sudah dikompres oleh
+  /// [siapkanFotoProfil] sehingga ukurannya kecil (±20–40 KB).
+  Future<String?> aturFotoProfil(List<int> bytes) async {
+    final data = Uint8List.fromList(bytes);
+    if (data.isEmpty) return 'Berkas foto tidak terbaca.';
+    if (data.length > 400 * 1024) {
+      return 'Ukuran foto masih terlalu besar setelah dikompres.';
+    }
+    if (peran == PeranAkun.adminHC) {
+      _fotoAdmin = data;
+    } else {
+      _fotoKaryawan = data;
+    }
+    await _simpanFoto();
+    notifyListeners();
+    return null;
+  }
+
+  Future<void> hapusFotoProfil() async {
+    if (peran == PeranAkun.adminHC) {
+      _fotoAdmin = null;
+    } else {
+      _fotoKaryawan = null;
+    }
+    await _simpanFoto();
+    notifyListeners();
+  }
+
+  Future<void> _simpanFoto() async {
+    final prefs = _prefs;
+    if (prefs == null) return;
+    try {
+      await prefs.setString(
+        _kunciFoto,
+        jsonEncode({
+          'karyawan': _fotoKaryawan == null ? null : base64Encode(_fotoKaryawan!),
+          'admin': _fotoAdmin == null ? null : base64Encode(_fotoAdmin!),
+        }),
+      );
+    } catch (_) {
+      // Kuota penuh — foto tetap tampil sampai halaman ditutup.
+    }
+  }
 
   // ── Presensi hari ini (karyawan) ─────────────────────────────
   Uint8List? fotoSelfie;
@@ -157,6 +215,14 @@ class AppState extends ChangeNotifier {
           peran = PeranAkun.karyawan;
           sesi = SesiStatus.sudahLogin;
         }
+      }
+      final fotoTersimpan = _prefs!.getString(_kunciFoto);
+      if (fotoTersimpan != null) {
+        final m = jsonDecode(fotoTersimpan) as Map<String, dynamic>;
+        final k = m['karyawan'] as String?;
+        final a = m['admin'] as String?;
+        if (k != null && k.isNotEmpty) _fotoKaryawan = base64Decode(k);
+        if (a != null && a.isNotEmpty) _fotoAdmin = base64Decode(a);
       }
     } catch (_) {
       // Penyimpanan tidak tersedia — aplikasi tetap berjalan dengan data awal.

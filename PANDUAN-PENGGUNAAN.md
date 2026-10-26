@@ -33,6 +33,18 @@ Lalu buka **<http://127.0.0.1:8080>** di tab Chrome biasa.
 > editor. Kamera dan GPS diblokir di dalam iframe, sehingga tombol
 > "Ambil Foto" akan menampilkan panel peringatan.
 
+### Tata letak: web dan ponsel
+
+Aplikasi menyesuaikan diri dengan lebar jendela:
+
+| Lebar jendela | Tampilan |
+|---|---|
+| **≥ 1000 px** (web/desktop) | Topbar navy + **sidebar menu** di kiri + konten dua kolom |
+| **< 1000 px** (ponsel/tablet) | Topbar + tombol ☰ (drawer) + **navigasi bawah** |
+
+Portal HC memakai ambang 940 px untuk sidebar. Coba perkecil jendela Chrome
+untuk melihat peralihannya — tidak ada konten yang terpotong di semua ukuran.
+
 ---
 
 ## 2. Akun demo
@@ -96,8 +108,12 @@ kartu ringkasan menampilkan **jam pulang** dan **durasi kerja total**.
    bila ditolak, **Catatan dari HC**.
 
 ### g. Profil
-Ubah kata sandi, notifikasi, Bantuan & Kebijakan Privasi, Tentang Aplikasi,
-dan **Keluar Akun**.
+- **Foto profil**: klik avatar (ada ikon kamera kecil) atau tombol **Tambah/Ganti
+  Foto** → pilih gambar dari perangkat. Foto otomatis dipotong persegi dan
+  dikecilkan, lalu muncul di topbar dan Beranda. Untuk menghapus, klik avatar
+  lagi → **Hapus foto profil**.
+- Ubah kata sandi, notifikasi, Bantuan & Kebijakan Privasi, Tentang Aplikasi,
+  dan **Keluar Akun**.
 
 ---
 
@@ -113,7 +129,7 @@ Masuk dengan `bambang@tipsen.id`. Sidebar berisi tujuh menu:
 | **Persetujuan** | Daftar pengajuan menunggu; **Setujui** langsung, atau **Tolak** dengan alasan wajib ≥ 5 karakter |
 | **Manajemen Karyawan** | Tambah/edit karyawan (validasi email unik), aktif/nonaktifkan, hapus |
 | **Laporan & Ekspor Data** | Filter periode & departemen, statistik kehadiran, rekap per karyawan, ekspor CSV, **Cetak / PDF** |
-| **Profil & Pengaturan** | Identitas HC, ubah sandi, pengaturan geofence, bantuan, keluar |
+| **Profil & Pengaturan** | Identitas HC (termasuk **foto profil**), ubah sandi, pengaturan geofence, bantuan, keluar |
 
 ### Sinkronisasi dua arah
 Pengajuan yang dikirim karyawan **langsung** muncul di menu Persetujuan
@@ -131,6 +147,7 @@ pengajuannya. Presensi karyawan juga langsung tercatat di Monitoring HC.
 | Kamera selfie | Nyata — memakai kamera perangkat lewat `camera` + `camera_web` |
 | GPS & geofence | Nyata — `geolocator`-style API browser, radius dihitung terhadap koordinat kantor |
 | Unggah lampiran | Nyata — pemilih berkas asli, isi berkas ikut tersimpan |
+| Foto profil | Nyata — dipotong persegi & dikompres jadi 320×320 JPEG di browser |
 | Ekspor CSV | Nyata — Blob + BOM UTF-8, terbuka rapi di Excel |
 | PDF | Nyata — dialog cetak Chrome (**Save as PDF**) |
 | Penyimpanan data | `SharedPreferences` browser — **tahan refresh**, tetapi hanya di perangkat itu |

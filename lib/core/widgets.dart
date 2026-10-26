@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import 'theme.dart';
@@ -332,15 +334,22 @@ void showToast(BuildContext context, String text, ToastKind kind) {
     ToastKind.info => (Icons.info_rounded, T.blueBg, T.blue, T.blueBorder),
   };
 
+  // Toast melayang di tengah bawah dengan lebar terbatas, seperti notifikasi
+  // aplikasi web pada umumnya. Di layar sempit tetap memakai margin.
+  final lebarLayar = MediaQuery.of(context).size.width;
+  final melayang = lebarLayar > 640;
+
   ScaffoldMessenger.of(context).hideCurrentSnackBar();
   ScaffoldMessenger.of(context).showSnackBar(
     SnackBar(
       duration: const Duration(seconds: 3),
-      elevation: 6,
+      elevation: 0,
       backgroundColor: Colors.transparent,
       padding: EdgeInsets.zero,
+      behavior: SnackBarBehavior.floating,
+      width: melayang ? 440 : null,
+      margin: melayang ? null : const EdgeInsets.fromLTRB(12, 0, 12, 12),
       content: Container(
-        margin: const EdgeInsets.symmetric(horizontal: 16),
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: bg,
@@ -403,4 +412,142 @@ class AppCard extends StatelessWidget {
       child: card,
     );
   }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// AVATAR (foto profil atau inisial)
+// ═══════════════════════════════════════════════════════════════
+
+/// Avatar bulat: menampilkan foto profil bila tersedia, jika belum
+/// menampilkan inisial nama seperti sebelumnya.
+class AvatarFoto extends StatelessWidget {
+  const AvatarFoto({
+    super.key,
+    required this.inisial,
+    this.foto,
+    this.size = 40,
+    this.bg = T.blueBg,
+    this.fg = T.accent,
+    this.borderColor,
+    this.borderWidth = 2,
+  });
+
+  final String inisial;
+  final Uint8List? foto;
+  final double size;
+  final Color bg;
+  final Color fg;
+  final Color? borderColor;
+  final double borderWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      clipBehavior: Clip.antiAlias,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: bg,
+        border: borderColor == null
+            ? null
+            : Border.all(color: borderColor!, width: borderWidth),
+      ),
+      alignment: Alignment.center,
+      child: foto == null
+          ? Text(
+              inisial,
+              style: TextStyle(
+                fontSize: size * 0.32,
+                fontWeight: FontWeight.w800,
+                color: fg,
+              ),
+            )
+          : Image.memory(
+              foto!,
+              width: size,
+              height: size,
+              fit: BoxFit.cover,
+              gaplessPlayback: true,
+              // Avatar tidak perlu disaring ulang saat ukuran berubah.
+              filterQuality: FilterQuality.medium,
+            ),
+    );
+  }
+}
+
+/// Avatar + lencana kamera kecil di kanan bawah, dipakai di halaman Profil
+/// sebagai tombol "ganti foto".
+class AvatarFotoBisaDiubah extends StatelessWidget {
+  const AvatarFotoBisaDiubah({
+    super.key,
+    required this.inisial,
+    required this.foto,
+    required this.onTap,
+    this.size = 84,
+    this.bg = T.blueBg,
+    this.fg = T.accent,
+    this.borderColor,
+  });
+
+  final String inisial;
+  final Uint8List? foto;
+  final VoidCallback onTap;
+  final double size;
+  final Color bg;
+  final Color fg;
+  final Color? borderColor;
+
+  @override
+  Widget build(BuildContext context) {
+    return Semantics(
+      button: true,
+      label: 'Ganti foto profil',
+      child: InkWell(
+        onTap: onTap,
+        customBorder: const CircleBorder(),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            AvatarFoto(
+              inisial: inisial,
+              foto: foto,
+              size: size,
+              bg: bg,
+              fg: fg,
+              borderColor: borderColor,
+            ),
+            Positioned(
+              right: 0,
+              bottom: 0,
+              child: Container(
+                width: size * 0.32,
+                height: size * 0.32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: T.accent,
+                  border: Border.all(color: Colors.white, width: 2),
+                ),
+                child: Icon(Icons.photo_camera_rounded,
+                    size: size * 0.16, color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// BANTUAN TATA LETAK WEB
+// ═══════════════════════════════════════════════════════════════
+
+/// Ambang lebar untuk tata letak web (sidebar + konten lebar).
+const double lebarWeb = 1000;
+
+/// Padding isi halaman: 16 px di layar sempit, 28 px di web.
+EdgeInsets paddingHalaman(double lebar, {double bawah = 28}) {
+  final samping = lebar >= lebarWeb ? 28.0 : 16.0;
+  return EdgeInsets.fromLTRB(samping, 8, samping, bawah);
 }

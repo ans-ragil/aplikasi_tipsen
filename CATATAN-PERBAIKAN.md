@@ -226,3 +226,36 @@ Satu keputusan teknis yang berubah: **batas lampiran diturunkan dari 1 MB ke
 account), sehingga lampiran disimpan sebagai `base64` di dalam dokumen
 pengajuan; karena batas satu dokumen Firestore 1 MiB dan base64 membengkak
 ±33%, 700 KB adalah batas aman.
+
+---
+
+## 7. Redesign web karyawan + foto profil (26 Okt 2026)
+
+Permintaan: *"tampilan untuk karyawan masih mobile, tolong fokus ke versi web
+dulu baik karyawan/HC"* dan *"di profil (karyawan dan HC) kembangkan jadi bisa
+menambahkan foto profil"*.
+
+### 7.1 Bingkai ponsel dihapus
+
+| # | Sebelum | Akar masalah | Perbaikan |
+|---|---|---|---|
+| 52 | Aplikasi karyawan tampil sebagai frame 520 px di tengah layar, nav bawah, satu kolom | `shell_screen.dart` sengaja membuat frame ponsel untuk meniru Figma | Shell ditulis ulang: **topbar navy + sidebar 244 px + konten maks. 1180 px**, pola sama dengan portal HC. Di bawah 1000 px otomatis kembali ke drawer + nav bawah |
+| 53 | Beranda, Presensi, Riwayat, Profil semuanya satu kolom memanjang | Tidak ada breakpoint di dalam layar | Masing-masing memakai `LayoutBuilder`: dua kolom di web, satu kolom di sempit |
+| 54 | Layar lebar menyisakan banyak ruang kosong | Tidak ada konten tambahan | Panel **Aktivitas Terakhir** (Beranda), **Cara Presensi** (Presensi), **Arti Status** (Riwayat) |
+| 55 | Area kamera selfie hanya 240 px sehingga panel kiri terlihat pendek | Tinggi tetap di `SelfieCapture` | Parameter `tinggi` baru → 380 px di web |
+
+### 7.2 Foto profil
+
+| # | Kebutuhan | Implementasi |
+|---|---|---|
+| 56 | Unggah foto | `pilihFotoProfil()` (`core/foto_profil.dart`) — pemilih berkas gambar, dipotong persegi, dikompres 320×320 JPEG q84 memakai paket `image` |
+| 57 | Ganti & hapus foto | Bottom sheet dua pilihan; hapus mengembalikan avatar ke inisial nama |
+| 58 | Foto tampil konsisten | Widget `AvatarFoto` dipakai di topbar karyawan, kartu identitas, Beranda, topbar HC, dan Profil HC |
+| 59 | Penyimpanan | Kunci terpisah `tipsen.foto.v1` (base64) agar data presensi tidak ikut gagal saat kuota localStorage menipis |
+| 60 | Foto kamera ponsel 3–8 MB | Dikompres di sisi klien sebelum disimpan; batas simpan 400 KB |
+
+### 7.3 Verifikasi
+
+`flutter analyze` 0 isu · `flutter build web` sukses · `flutter test` 3/3 lulus ·
+uji Chrome 1440 px dan 900/600 px: **0 error runtime**, unggah foto berhasil di
+sisi karyawan maupun HC, dan Clock In karyawan tetap muncul di Monitoring HC.

@@ -51,103 +51,146 @@ class _PresensiScreenState extends State<PresensiScreen> {
         ? 0
         : (_now.hour * 60 + _now.minute) - (menitDariJam(hariIni!.clockIn) ?? 0);
 
-    return SafeArea(
-      bottom: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(T.margin, 8, T.margin, 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            const Text('Presensi Kehadiran',
-                style: TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            const Text(
-                'Pastikan lokasi dan selfie Anda valid sebelum mengirim presensi.',
-                style: TextStyle(fontSize: 12, color: T.textSecondary)),
-            const SizedBox(height: 16),
-
-            // ── Panel waktu ──────────────────────────────────
-            AppCard(
-              padding: const EdgeInsets.all(14),
-              child: Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: T.blueBg,
-                      borderRadius: BorderRadius.circular(T.rMd),
-                    ),
-                    child: const Icon(Icons.schedule_rounded,
-                        size: 21, color: T.accent),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Waktu saat ini',
-                            style: TextStyle(
-                                fontSize: 11, color: T.textSecondary)),
-                        Text('$_jam WIB',
-                            style: const TextStyle(
-                                fontSize: 17, fontWeight: FontWeight.w800)),
-                      ],
-                    ),
-                  ),
-                  _BadgeWaktu(app: app, lewat: _lewatJamMasuk),
-                ],
-              ),
+    // ── Panel waktu ──────────────────────────────────────────────
+    final panelWaktu = AppCard(
+      padding: const EdgeInsets.all(14),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: T.blueBg,
+              borderRadius: BorderRadius.circular(T.rMd),
             ),
-
-            // ── Ringkasan hari ini (setelah Clock In) ────────
-            if (hariIni != null) ...[
-              const SizedBox(height: 12),
-              _RingkasanHariIni(
-                presensi: hariIni,
-                menitBerjalan: menitBerjalan,
-              ),
-            ],
-            const SizedBox(height: 16),
-
-            // ── Selfie (kamera asli + fallback) ──────────────
-            if (app.langkah == LangkahPresensi.belumClockIn)
-              SelfieCapture(
-                foto: app.fotoSelfie,
-                simulasiAktif: app.selfieSimulasi,
-                onFoto: app.setFotoSelfie,
-                onSimulasi: () {
-                  app.ambilSelfie();
-                  showToast(
-                      context,
-                      'Mode tanpa kamera aktif — presensi tetap dapat dikirim.',
-                      ToastKind.info);
-                },
-              )
-            else
-              _KartuSelfieTercatat(presensi: hariIni!),
-            const SizedBox(height: 16),
-
-            // ── Lokasi ───────────────────────────────────────
-            _KartuLokasi(app: app),
-            const SizedBox(height: 20),
-
-            // ── Aksi utama ───────────────────────────────────
-            _TombolUtama(
-              app: app,
-              memproses: _memproses,
-              onClockIn: _kirimClockIn,
-              onClockOut: _kirimClockOut,
-              onLihatDetail: () {
-                final p = app.presensiHariIni;
-                if (p == null) return;
-                Navigator.of(context).push(MaterialPageRoute(
-                    builder: (_) => DetailPresensiScreen(presensi: p)));
-              },
+            child: const Icon(Icons.schedule_rounded,
+                size: 21, color: T.accent),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text('Waktu saat ini',
+                    style: TextStyle(fontSize: 11, color: T.textSecondary)),
+                Text('$_jam WIB',
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w800)),
+              ],
             ),
-          ],
-        ),
+          ),
+          _BadgeWaktu(app: app, lewat: _lewatJamMasuk),
+        ],
       ),
+    );
+
+    // ── Selfie (kamera asli + fallback) ──────────────────────────
+    Widget selfie(bool web) => app.langkah == LangkahPresensi.belumClockIn
+        ? SelfieCapture(
+            foto: app.fotoSelfie,
+            simulasiAktif: app.selfieSimulasi,
+            onFoto: app.setFotoSelfie,
+            tinggi: web ? 380 : 240,
+            onSimulasi: () {
+              app.ambilSelfie();
+              showToast(
+                  context,
+                  'Mode tanpa kamera aktif — presensi tetap dapat dikirim.',
+                  ToastKind.info);
+            },
+          )
+        : _KartuSelfieTercatat(presensi: hariIni!);
+
+    final tombol = _TombolUtama(
+      app: app,
+      memproses: _memproses,
+      onClockIn: _kirimClockIn,
+      onClockOut: _kirimClockOut,
+      onLihatDetail: () {
+        final p = app.presensiHariIni;
+        if (p == null) return;
+        Navigator.of(context).push(MaterialPageRoute(
+            builder: (_) => DetailPresensiScreen(presensi: p)));
+      },
+    );
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final web = c.maxWidth >= lebarWeb;
+
+        return SingleChildScrollView(
+          padding: paddingHalaman(c.maxWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              const Text('Presensi Kehadiran',
+                  style:
+                      TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+              const SizedBox(height: 4),
+              const Text(
+                  'Pastikan lokasi dan selfie Anda valid sebelum mengirim presensi.',
+                  style: TextStyle(fontSize: 12, color: T.textSecondary)),
+              const SizedBox(height: 16),
+
+              if (web)
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    // Kamera di kiri (lebih besar), panel aksi di kanan.
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          selfie(true),
+                          const SizedBox(height: 16),
+                          const _PanduanPresensi(),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          panelWaktu,
+                          if (hariIni != null) ...[
+                            const SizedBox(height: 12),
+                            _RingkasanHariIni(
+                              presensi: hariIni,
+                              menitBerjalan: menitBerjalan,
+                            ),
+                          ],
+                          const SizedBox(height: 12),
+                          _KartuLokasi(app: app),
+                          const SizedBox(height: 18),
+                          tombol,
+                        ],
+                      ),
+                    ),
+                  ],
+                )
+              else ...[
+                panelWaktu,
+                if (hariIni != null) ...[
+                  const SizedBox(height: 12),
+                  _RingkasanHariIni(
+                    presensi: hariIni,
+                    menitBerjalan: menitBerjalan,
+                  ),
+                ],
+                const SizedBox(height: 16),
+                selfie(false),
+                const SizedBox(height: 16),
+                _KartuLokasi(app: app),
+                const SizedBox(height: 20),
+                tombol,
+              ],
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -614,5 +657,87 @@ class _TombolUtama extends StatelessWidget {
           ],
         );
     }
+  }
+}
+
+/// Panduan 3 langkah di bawah kamera (hanya versi web) — mengisi ruang
+/// kosong sekaligus menjelaskan urutan presensi kepada pengguna baru.
+class _PanduanPresensi extends StatelessWidget {
+  const _PanduanPresensi();
+
+  @override
+  Widget build(BuildContext context) {
+    const langkah = [
+      (
+        Icons.photo_camera_front_rounded,
+        'Ambil foto selfie',
+        'Pastikan wajah terlihat jelas dan pencahayaan cukup.',
+      ),
+      (
+        Icons.my_location_rounded,
+        'Izinkan akses lokasi',
+        'Sistem mencocokkan posisi Anda dengan radius kantor.',
+      ),
+      (
+        Icons.send_rounded,
+        'Kirim presensi',
+        'Jam masuk, status, dan lokasi langsung tercatat.',
+      ),
+    ];
+
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionLabel('Cara Presensi'),
+          const SizedBox(height: 12),
+          for (var i = 0; i < langkah.length; i++) ...[
+            if (i > 0) const SizedBox(height: 12),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: T.blueBg,
+                    borderRadius: BorderRadius.circular(T.rSm),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text('${i + 1}',
+                      style: const TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w800,
+                          color: T.accent)),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(langkah[i].$1, size: 14, color: T.textSecondary),
+                          const SizedBox(width: 5),
+                          Text(langkah[i].$2,
+                              style: const TextStyle(
+                                  fontSize: 12.5,
+                                  fontWeight: FontWeight.w700)),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      Text(langkah[i].$3,
+                          style: const TextStyle(
+                              fontSize: 11, color: T.textSecondary)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ],
+      ),
+    );
   }
 }

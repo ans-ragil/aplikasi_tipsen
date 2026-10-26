@@ -34,6 +34,8 @@ bisa dibuka dengan server statis apa pun.
 | 13 | Audit menyeluruh | 38 catatan + 9 temuan baru → semua diperbaiki & diuji E2E | ✅ Selesai |
 | 14 | Audit responsif tablet | 600/900/1200 px → 4 masalah tata letak diperbaiki | ✅ Selesai |
 | 15 | Persiapan Firebase | `firebase.json`, `firestore.rules`, index, `PANDUAN-FIREBASE.md` | ✅ Selesai |
+| 16 | Redesign web karyawan | Bingkai ponsel → sidebar + topbar + konten 2 kolom | ✅ Selesai |
+| 17 | Foto profil | Unggah/kirim ulang/hapus foto untuk karyawan & HC | ✅ Selesai |
 | 10 | Firebase | Auth email/password + Firestore — **butuh kredensial project Firebase Anda** | ⏸ Menunggu user |
 | 12 | Deploy | Firebase Hosting + repo GitHub remote — **butuh akun/CLI login** | ⏸ Menunggu user |
 
@@ -134,6 +136,43 @@ Pengujian ulang pada lebar **600 / 900 / 1200 px** untuk kedua POV menemukan
 
 Setelah perbaikan: **0 error runtime** pada ketiga lebar, seluruh halaman HC
 tetap terbaca tanpa geser horizontal.
+
+
+## Redesign web karyawan + foto profil (26 Okt 2026, lanjutan 2)
+
+### 1. Aplikasi karyawan tidak lagi berbentuk ponsel di tengah layar
+
+| Sebelum | Sesudah |
+|---|---|
+| Frame 520 px di tengah, nav bawah, konten satu kolom | **Topbar navy + sidebar 244 px + area konten maksimal 1180 px**, sama seperti portal HC |
+| Tidak ada identitas produk di atas | Topbar berisi logo, jam berjalan, dan avatar pengguna |
+| Semua konten menumpuk ke bawah | Beranda, Presensi, Riwayat, dan Profil memakai **dua kolom** |
+
+Perilaku responsif: **≥ 1000 px** memakai sidebar; **< 1000 px** otomatis
+kembali ke topbar + drawer + navigasi bawah, sehingga di ponsel tetap nyaman.
+
+Tata letak baru per halaman:
+
+| Halaman | Kolom kiri | Kolom kanan |
+|---|---|---|
+| Beranda | Hero jam + menu cepat 4 kartu | Ringkasan bulan (hadir, izin, total jam) |
+| Presensi | Kamera selfie (380 px) + panduan 3 langkah | Waktu, ringkasan hari ini, lokasi, tombol aksi |
+| Riwayat | Pemilih periode + filter + daftar catatan | Ringkasan periode, ekspor CSV, arti status |
+| Profil | Kartu identitas + foto + informasi akun | Pengaturan akun + keluar |
+
+Tambahan: panel **Aktivitas Terakhir** di Beranda (4 catatan terbaru) supaya
+layar lebar tidak menyisakan ruang kosong.
+
+### 2. Foto profil (karyawan & HC)
+
+- Unggah lewat pemilih berkas; foto **dipotong persegi dan dikompres** menjadi
+  320 × 320 JPEG (±20–40 KB) memakai paket `image` — foto kamera 3–8 MB tidak
+  akan membebani penyimpanan browser.
+- Bisa **ganti** dan **hapus** foto (bottom sheet dua pilihan).
+- Foto tampil di **topbar**, **kartu identitas**, dan **halaman Beranda**.
+- Disimpan di kunci terpisah `tipsen.foto.v1` agar penyimpanan data presensi
+  tidak ikut gagal bila kuota localStorage menipis.
+- Foto HC juga muncul di topbar portal HC dan halaman Profil & Pengaturan.
 
 
 ## Berkas kode utama

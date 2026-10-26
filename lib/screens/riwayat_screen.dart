@@ -66,175 +66,241 @@ class _RiwayatScreenState extends State<RiwayatScreen> {
         0, (t, e) => t + (e.presensi?.durasiMenit ?? 0));
     final grup = _kelompokkan(entri);
 
-    return SafeArea(
-      bottom: false,
-      child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(T.margin, 8, T.margin, 28),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(judul,
-                style: const TextStyle(
-                    fontSize: 17, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 4),
-            Text(subjudul,
-                style: const TextStyle(fontSize: 12, color: T.textSecondary)),
-            const SizedBox(height: 14),
+    // ── Kepala halaman ───────────────────────────────────────
+    final kepala = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(judul,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800)),
+        const SizedBox(height: 4),
+        Text(subjudul,
+            style: const TextStyle(fontSize: 12, color: T.textSecondary)),
+      ],
+    );
 
-            // ── Pemilih periode ──────────────────────────────
-            AppCard(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-              onTap: () => _pilihPeriode(context),
-              child: Row(
-                children: [
-                  const Icon(Icons.calendar_month_rounded,
-                      size: 18, color: T.accent),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const Text('Periode',
-                            style: TextStyle(
-                                fontSize: 10.5, color: T.textSecondary)),
-                        const SizedBox(height: 2),
-                        Text(
-                          _periode == null
-                              ? 'Semua periode'
-                              : bulanTahun(_periode!),
-                          style: const TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w700),
-                        ),
-                      ],
-                    ),
-                  ),
-                  Text('${entri.length} catatan',
-                      style: const TextStyle(
-                          fontSize: 11.5, color: T.textSecondary)),
-                  const SizedBox(width: 6),
-                  const Icon(Icons.expand_more_rounded,
-                      size: 20, color: T.textMuted),
-                ],
-              ),
-            ),
-            const SizedBox(height: 10),
-
-            // ── Ringkasan periode ────────────────────────────
-            Row(
+    // ── Pemilih periode ──────────────────────────────────────
+    final periodeCard = AppCard(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      onTap: () => _pilihPeriode(context),
+      child: Row(
+        children: [
+          const Icon(Icons.calendar_month_rounded,
+              size: 18, color: T.accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(
-                  child: _RingkasanKecil(
-                    ikon: Icons.event_available_rounded,
-                    label: 'Catatan presensi',
-                    nilai:
-                        '${entri.where((e) => e.presensi != null).length} hari',
-                    warna: T.green,
-                    bg: T.greenBg,
-                  ),
-                ),                const SizedBox(width: 8),
-                Expanded(
-                  child: _RingkasanKecil(
-                    ikon: Icons.timer_outlined,
-                    label: 'Total jam kerja',
-                    nilai: totalMenit == 0 ? '—' : durasiLabel(totalMenit),
-                    warna: T.accent,
-                    bg: T.blueBg,
-                  ),
+                const Text('Periode',
+                    style: TextStyle(fontSize: 10.5, color: T.textSecondary)),
+                const SizedBox(height: 2),
+                Text(
+                  _periode == null ? 'Semua periode' : bulanTahun(_periode!),
+                  style: const TextStyle(
+                      fontSize: 13, fontWeight: FontWeight.w700),
                 ),
               ],
             ),
-            const SizedBox(height: 12),
-
-            // ── Filter tab ───────────────────────────────────
-            Row(
-              children: [
-                _TabFilter(
-                  label: 'Semua',
-                  aktif: _filter == RiwayatFilter.semua,
-                  onTap: () => setState(() => _filter = RiwayatFilter.semua),
-                ),
-                const SizedBox(width: 8),
-                _TabFilter(
-                  label: 'Hadir',
-                  aktif: _filter == RiwayatFilter.hadir,
-                  onTap: () => setState(() => _filter = RiwayatFilter.hadir),
-                ),
-                const SizedBox(width: 8),
-                _TabFilter(
-                  label: 'Izin',
-                  aktif: _filter == RiwayatFilter.izin,
-                  onTap: () => setState(() => _filter = RiwayatFilter.izin),
-                ),
-              ],
-            ),
-            const SizedBox(height: 14),
-
-            // ── Daftar / keadaan kosong ──────────────────────
-            if (entri.isEmpty)
-              _KeadaanKosong(filter: _filter)
-            else
-              for (final g in grup) ...[
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 8, top: 4),
-                  child: Row(
-                    children: [
-                      Text(g.key.toUpperCase(),
-                          style: const TextStyle(
-                              fontSize: 10.5,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 1,
-                              color: T.textMuted)),
-                      const SizedBox(width: 8),
-                      Expanded(
-                          child: Container(height: 1, color: T.border)),
-                      const SizedBox(width: 8),
-                      Text('${g.value.length}',
-                          style: const TextStyle(
-                              fontSize: 10.5, color: T.textMuted)),
-                    ],
-                  ),
-                ),
-                for (final e in g.value)
-                  Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: e.presensi != null
-                        ? _ItemPresensi(
-                            presensi: e.presensi!,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) =>
-                                    DetailPresensiScreen(presensi: e.presensi!),
-                              ),
-                            ),
-                          )
-                        : _ItemIzin(
-                            pengajuan: e.pengajuan!,
-                            onTap: () => Navigator.of(context).push(
-                              MaterialPageRoute(
-                                builder: (_) => DetailPengajuanScreen(
-                                    pengajuan: e.pengajuan!),
-                              ),
-                            ),
-                          ),
-                  ),
-              ],
-            const SizedBox(height: 10),
-            AppButton(
-              label: 'Unduh Riwayat (CSV)',
-              icon: Icons.download_rounded,
-              variant: AppButtonVariant.secondary,
-              onPressed: entri.isEmpty ? null : () => _unduh(app, entri),
-            ),
-            const SizedBox(height: 6),
-            const Center(
-              child: Text(
-                'Berkas CSV dapat dibuka di Excel atau Google Sheets.',
-                style: TextStyle(fontSize: 10.5, color: T.textMuted),
-              ),
-            ),
-          ],
-        ),
+          ),
+          Text('${entri.length} catatan',
+              style:
+                  const TextStyle(fontSize: 11.5, color: T.textSecondary)),
+          const SizedBox(width: 6),
+          const Icon(Icons.expand_more_rounded, size: 20, color: T.textMuted),
+        ],
       ),
+    );
+
+    // ── Ringkasan periode ────────────────────────────────────
+    final ringkasan = Row(
+      children: [
+        Expanded(
+          child: _RingkasanKecil(
+            ikon: Icons.event_available_rounded,
+            label: 'Catatan presensi',
+            nilai: '${entri.where((e) => e.presensi != null).length} hari',
+            warna: T.green,
+            bg: T.greenBg,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: _RingkasanKecil(
+            ikon: Icons.timer_outlined,
+            label: 'Total jam kerja',
+            nilai: totalMenit == 0 ? '—' : durasiLabel(totalMenit),
+            warna: T.accent,
+            bg: T.blueBg,
+          ),
+        ),
+      ],
+    );
+
+    // ── Filter tab ───────────────────────────────────────────
+    final tabFilter = Row(
+      children: [
+        _TabFilter(
+          label: 'Semua',
+          aktif: _filter == RiwayatFilter.semua,
+          onTap: () => setState(() => _filter = RiwayatFilter.semua),
+        ),
+        const SizedBox(width: 8),
+        _TabFilter(
+          label: 'Hadir',
+          aktif: _filter == RiwayatFilter.hadir,
+          onTap: () => setState(() => _filter = RiwayatFilter.hadir),
+        ),
+        const SizedBox(width: 8),
+        _TabFilter(
+          label: 'Izin',
+          aktif: _filter == RiwayatFilter.izin,
+          onTap: () => setState(() => _filter = RiwayatFilter.izin),
+        ),
+      ],
+    );
+
+    // ── Daftar / keadaan kosong ──────────────────────────────
+    final daftar = <Widget>[
+      if (entri.isEmpty)
+        _KeadaanKosong(filter: _filter)
+      else
+        for (final g in grup) ...[
+          Padding(
+            padding: const EdgeInsets.only(bottom: 8, top: 4),
+            child: Row(
+              children: [
+                Text(g.key.toUpperCase(),
+                    style: const TextStyle(
+                        fontSize: 10.5,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: 1,
+                        color: T.textMuted)),
+                const SizedBox(width: 8),
+                Expanded(child: Container(height: 1, color: T.border)),
+                const SizedBox(width: 8),
+                Text('${g.value.length}',
+                    style:
+                        const TextStyle(fontSize: 10.5, color: T.textMuted)),
+              ],
+            ),
+          ),
+          for (final e in g.value)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: e.presensi != null
+                  ? _ItemPresensi(
+                      presensi: e.presensi!,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) =>
+                              DetailPresensiScreen(presensi: e.presensi!),
+                        ),
+                      ),
+                    )
+                  : _ItemIzin(
+                      pengajuan: e.pengajuan!,
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (_) => DetailPengajuanScreen(
+                              pengajuan: e.pengajuan!),
+                        ),
+                      ),
+                    ),
+            ),
+        ],
+    ];
+
+    // ── Ekspor ───────────────────────────────────────────────
+    final aksiEkspor = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AppButton(
+          label: 'Unduh Riwayat (CSV)',
+          icon: Icons.download_rounded,
+          variant: AppButtonVariant.secondary,
+          onPressed: entri.isEmpty ? null : () => _unduh(app, entri),
+        ),
+        const SizedBox(height: 6),
+        const Text(
+          'Berkas CSV dapat dibuka di Excel atau Google Sheets.',
+          textAlign: TextAlign.center,
+          style: TextStyle(fontSize: 10.5, color: T.textMuted),
+        ),
+      ],
+    );
+
+    return LayoutBuilder(
+      builder: (context, c) {
+        final web = c.maxWidth >= lebarWeb;
+
+        // Web: daftar di kiri, ringkasan + ekspor menempel di kanan.
+        if (web) {
+          return SingleChildScrollView(
+            padding: paddingHalaman(c.maxWidth),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                kepala,
+                const SizedBox(height: 16),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(
+                      flex: 3,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          periodeCard,
+                          const SizedBox(height: 12),
+                          tabFilter,
+                          const SizedBox(height: 14),
+                          ...daftar,
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 18),
+                    Expanded(
+                      flex: 2,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          const SectionLabel('Ringkasan Periode'),
+                          const SizedBox(height: 8),
+                          ringkasan,
+                          const SizedBox(height: 16),
+                          aksiEkspor,
+                          const SizedBox(height: 18),
+                          const _KeteranganStatus(),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          );
+        }
+
+        return SingleChildScrollView(
+          padding: paddingHalaman(c.maxWidth),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              kepala,
+              const SizedBox(height: 14),
+              periodeCard,
+              const SizedBox(height: 10),
+              ringkasan,
+              const SizedBox(height: 12),
+              tabFilter,
+              const SizedBox(height: 14),
+              ...daftar,
+              const SizedBox(height: 10),
+              aksiEkspor,
+            ],
+          ),
+        );
+      },
     );
   }
 
@@ -677,6 +743,49 @@ class _KeadaanKosong extends StatelessWidget {
           Text(ket,
               textAlign: TextAlign.center,
               style: const TextStyle(fontSize: 11.5, color: T.textSecondary)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Keterangan arti tiap status presensi (kolom kanan versi web).
+class _KeteranganStatus extends StatelessWidget {
+  const _KeteranganStatus();
+
+  @override
+  Widget build(BuildContext context) {
+    const baris = [
+      (AppBadgeTone.green, 'Hadir', 'Masuk sebelum pukul 08:15 WIB.'),
+      (AppBadgeTone.amber, 'Terlambat', 'Masuk setelah batas 08:15 WIB.'),
+      (AppBadgeTone.blue, 'WFH', 'Presensi di luar radius kantor.'),
+      (AppBadgeTone.slate, 'Izin Disetujui', 'Cuti/izin yang disetujui HC.'),
+    ];
+
+    return AppCard(
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const SectionLabel('Arti Status'),
+          const SizedBox(height: 12),
+          for (var i = 0; i < baris.length; i++) ...[
+            if (i > 0) const SizedBox(height: 10),
+            Row(
+              children: [
+                SizedBox(
+                  width: 104,
+                  child: AppBadge(baris[i].$2, tone: baris[i].$1),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(baris[i].$3,
+                      style: const TextStyle(
+                          fontSize: 11, color: T.textSecondary)),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );

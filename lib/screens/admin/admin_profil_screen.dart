@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../core/foto_profil.dart';
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../state/app_state.dart';
@@ -54,11 +55,89 @@ class AdminProfilScreen extends StatelessWidget {
     }
   }
 
+  // ── Foto profil HC ─────────────────────────────────────────
+  Future<void> _pilihDariPerangkat(BuildContext context) async {
+    final app = context.read<AppState>();
+    final hasil = await pilihFotoProfil();
+    if (!context.mounted) return;
+    if (hasil.pesan != null) {
+      showToast(context, hasil.pesan!, ToastKind.error);
+      return;
+    }
+    if (hasil.bytes == null) return;
+
+    final galat = await app.aturFotoProfil(hasil.bytes!);
+    if (!context.mounted) return;
+    if (galat != null) {
+      showToast(context, galat, ToastKind.error);
+      return;
+    }
+    showToast(context, 'Foto profil berhasil diperbarui.', ToastKind.success);
+  }
+
+  Future<void> _hapusFoto(BuildContext context) async {
+    await context.read<AppState>().hapusFotoProfil();
+    if (!context.mounted) return;
+    showToast(context, 'Foto profil dihapus.', ToastKind.info);
+  }
+
+  void _menuFoto(BuildContext context) {
+    final app = context.read<AppState>();
+    if (app.fotoAdmin == null) {
+      _pilihDariPerangkat(context);
+      return;
+    }
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: T.card,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(T.rLg)),
+      ),
+      builder: (ctx) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const SizedBox(height: 10),
+            Container(
+              width: 38,
+              height: 4,
+              decoration: BoxDecoration(
+                color: T.border,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            const SizedBox(height: 12),
+            ListTile(
+              leading: const Icon(Icons.photo_library_rounded,
+                  color: T.accent, size: 20),
+              title: const Text('Pilih foto baru',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _pilihDariPerangkat(context);
+              },
+            ),
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded,
+                  color: T.red, size: 20),
+              title: const Text('Hapus foto profil',
+                  style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+              onTap: () {
+                Navigator.of(ctx).pop();
+                _hapusFoto(context);
+              },
+            ),
+            const SizedBox(height: 8),
+          ],
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final admin = app.adminHC;
-
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
@@ -80,19 +159,14 @@ class AdminProfilScreen extends StatelessWidget {
                 children: [
                   Row(
                     children: [
-                      Container(
-                        width: 62,
-                        height: 62,
-                        decoration: BoxDecoration(
-                          gradient: T.heroGradient,
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(admin.inisial,
-                            style: const TextStyle(
-                                fontSize: 20,
-                                fontWeight: FontWeight.w800,
-                                color: Colors.white)),
+                      AvatarFotoBisaDiubah(
+                        inisial: admin.inisial,
+                        foto: app.fotoAdmin,
+                        size: 66,
+                        bg: T.navy,
+                        fg: Colors.white,
+                        borderColor: T.border,
+                        onTap: () => _menuFoto(context),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -111,6 +185,18 @@ class AdminProfilScreen extends StatelessWidget {
                             AppBadge('Administrator HC',
                                 tone: AppBadgeTone.blue),
                           ],
+                        ),
+                      ),
+                      TextButton.icon(
+                        onPressed: () => _menuFoto(context),
+                        icon: const Icon(Icons.photo_camera_rounded, size: 15),
+                        label: Text(app.fotoAdmin == null
+                            ? 'Tambah Foto'
+                            : 'Ganti Foto'),
+                        style: TextButton.styleFrom(
+                          foregroundColor: T.accent,
+                          textStyle: const TextStyle(
+                              fontSize: 11.5, fontWeight: FontWeight.w700),
                         ),
                       ),
                     ],

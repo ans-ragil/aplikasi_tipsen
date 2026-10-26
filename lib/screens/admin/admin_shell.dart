@@ -177,7 +177,8 @@ class _TopBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final admin = context.watch<AppState>().adminHC;
+    final app = context.watch<AppState>();
+    final admin = app.adminHC;
 
     return Container(
       height: 64,
@@ -264,20 +265,14 @@ class _TopBar extends StatelessWidget {
                     style: TextStyle(fontSize: 13, color: T.red)),
               ),
             ],
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: T.navy,
-                border: Border.all(color: const Color(0xFF5574AD), width: 2),
-              ),
-              alignment: Alignment.center,
-              child: Text(admin.inisial,
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white)),
+            child: AvatarFoto(
+              inisial: admin.inisial,
+              foto: app.fotoAdmin,
+              size: 36,
+              bg: T.navy,
+              fg: Colors.white,
+              borderColor: const Color(0xFF5574AD),
+              borderWidth: 2,
             ),
           ),
         ],

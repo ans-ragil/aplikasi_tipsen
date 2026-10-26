@@ -17,12 +17,17 @@ class SelfieCapture extends StatefulWidget {
     required this.onFoto,
     this.onSimulasi,
     this.simulasiAktif = false,
+    this.tinggi = 240,
   });
 
   final Uint8List? foto;
   final ValueChanged<Uint8List?> onFoto;
   final VoidCallback? onSimulasi;
   final bool simulasiAktif;
+
+  /// Tinggi minimum area kamera — di layar web dipakai lebih besar agar
+  /// panel kiri tidak terlihat pendek dibanding panel aksi di kanannya.
+  final double tinggi;
 
   @override
   State<SelfieCapture> createState() => _SelfieCaptureState();
@@ -105,7 +110,7 @@ class _SelfieCaptureState extends State<SelfieCapture> {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      constraints: const BoxConstraints(minHeight: 240),
+      constraints: BoxConstraints(minHeight: widget.tinggi),
       decoration: BoxDecoration(
         borderRadius: BorderRadius.circular(T.rXl),
         gradient: const LinearGradient(
@@ -132,7 +137,7 @@ class _SelfieCaptureState extends State<SelfieCapture> {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            height: 260,
+            height: widget.tinggi,
             width: double.infinity,
             child: Image.memory(
               widget.foto!,
@@ -205,9 +210,9 @@ class _SelfieCaptureState extends State<SelfieCapture> {
 
     // 3) Memuat kamera
     if (_memuat) {
-      return const SizedBox(
-        height: 240,
-        child: Center(
+      return SizedBox(
+        height: widget.tinggi,
+        child: const Center(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
