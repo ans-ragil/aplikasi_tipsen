@@ -1,17 +1,40 @@
-# aplikasi_tipsen
+# TIPSEN — Aplikasi Presensi Online
 
-A new Flutter project.
+Proyek individu mata kuliah **Mobile and Web Application Development** (Ganjil 2026/2027).
+Mahasiswa: Anisa Ragil Saputri — NIM 23.01.55.0009 — Kelas A1/A2DLC.
 
-## Getting Started
+TIPSEN adalah aplikasi presensi online karyawan berbasis **Flutter** (mobile + web) dengan
+**Firebase** (Authentication email/password, Cloud Firestore, Hosting).
 
-This project is a starting point for a Flutter application.
+## Fitur inti (MVP)
 
-A few resources to get you started if this is your first Flutter project:
+- **Clock In / Clock Out** dengan validasi lokasi (GPS geofence) dan selfie
+- **Riwayat presensi** karyawan
+- **Pengajuan cuti/izin** secara online (Should)
+- **Laporan & ekspor data** untuk admin/HC (Could)
 
-- [Learn Flutter](https://docs.flutter.dev/get-started/learn-flutter)
-- [Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Flutter learning resources](https://docs.flutter.dev/reference/learning-resources)
+## Teknologi
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| Komponen | Fungsi |
+|---|---|
+| Flutter + Dart | Aplikasi mobile dan web |
+| Firebase Authentication | Login email/password |
+| Cloud Firestore | Penyimpanan data (CRUD) |
+| Firebase Hosting | Versi web |
+| GitHub | Repositori & riwayat perubahan |
+
+> Catatan batasan proyek: tanpa billing account, Cloud Functions, OTP telepon,
+> maupun payment gateway. Seluruh data menggunakan simulasi.
+
+## Menjalankan project
+
+```bash
+flutter pub get
+flutter run -d chrome   # versi web
+flutter run             # pilih emulator/device
+```
+
+## Rancangan
+
+User flow, sitemap, wireframe, dan style guide tersedia pada modul minggu 1–4
+serta prototipe Figma "TIPSEN-App-Mockups".
