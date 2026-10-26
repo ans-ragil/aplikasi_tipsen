@@ -17,7 +17,7 @@ D:/KULIAH/smt7/tipsen/dev/flutter/bin/flutter.bat run -d chrome
 Alternatif tanpa Flutter: build web sudah tersedia di folder `build/web`,
 bisa dibuka dengan server statis apa pun.
 
-## Status: ✅ FASE 1–9 + 11 SELESAI — aplikasi karyawan & web admin siap demo
+## Status: ✅ FASE 1–9 + 11 SELESAI + PERBAIKAN UI — siap demo
 
 | # | Fase | Ruang lingkup | Status |
 |---|------|---------------|--------|
@@ -46,6 +46,20 @@ Akses: halaman Login → tombol **"Masuk sebagai HC Admin (Demo)"**.
 | Persetujuan Cuti & Izin | Filter status, daftar pengajuan dengan aksi inline Setujui/Tolak, panel detail + lampiran |
 | Manajemen Karyawan | Pencarian, filter status, grid kartu, modal detail, modal tambah/edit dengan validasi |
 | Laporan & Ekspor Data | Filter periode/status, 3 kartu ringkasan, tabel rekap dengan progress %, modal rincian, tombol ekspor Excel/PDF |
+
+## Riwayat perbaikan (26 Okt 2026, setelah uji coba user)
+
+| Masalah yang dilaporkan | Penyebab | Perbaikan |
+|---|---|---|
+| Tabel admin tumpang tindih (teks kolom menimpa kolom lain) | Sel tabel memakai lebar sama tanpa pemotongan teks | `AdminTable` ditulis ulang: lebar kolom berbobot (`flex`), tiap sel di-`ClipRect` + teks `ellipsis`, baris bisa diklik |
+| Tampilan hilang saat jendela diperlebar | Frame ponsel di layar lebar tidak punya tinggi terbatas | Frame diberi `height: constraints.maxHeight - 16` + latar gradien, konten tidak lagi kolaps |
+| Menu selfie belum terhubung kamera | Masih simulasi klik | Ditambah paket **camera** + widget `SelfieCapture`: pratinjau kamera langsung, tombol **Ambil Foto**, hasil foto tampil & tersimpan di detail presensi; ada fallback "mode simulasi" bila izin kamera ditolak |
+| Tombol "Akses Cepat" di dashboard admin hanya toast | Belum terhubung ke navigasi | Dashboard menerima `onPindahMenu` → langsung pindah ke menu Persetujuan / Tracking / Laporan |
+| Baris tabel tidak responsif saat diklik | Belum ada handler | Seluruh baris Monitoring & tabel laporan bisa diklik untuk membuka detail |
+
+> Catatan kamera di Chrome: izin kamera hanya muncul bila halaman dibuka di
+> **tab browser langsung** (`http://localhost:8080`), bukan di dalam panel
+> pratinjau/iframe. Bila ditolak, aplikasi otomatis menawarkan mode simulasi.
 
 ## Yang sudah bisa dicoba sekarang
 
