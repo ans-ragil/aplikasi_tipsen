@@ -9,9 +9,16 @@ import 'riwayat_screen.dart';
 /// Filter riwayat yang bisa diaktifkan dari Beranda.
 enum RiwayatFilter { semua, hadir, izin }
 
-/// Shell utama aplikasi karyawan: 4 tab (Beranda | Presensi | Riwayat | Profil)
-/// dengan bottom navigation. Di layar lebar (Chrome), konten dan nav ditampilkan
-/// dalam frame terpusat — meniru mockup Figma; di layar sempit full-width.
+/// Shell utama aplikasi karyawan: 4 tab (Beranda | Presensi | Riwayat | Profil).
+///
+/// Tata letak:
+/// • Layar sempit (< 800 px) → full-width, seperti aplikasi ponsel biasa.
+/// • Layar lebar (Chrome)    → frame "ponsel" terpusat; nav berada DI DALAM
+///   frame supaya proporsinya selalu benar dan tidak pernah kolaps.
+///
+/// Catatan penting: navigasi bawah tidak lagi dipasang pada slot
+/// `Scaffold.bottomNavigationBar`, karena `Center` di dalam slot tersebut
+/// memuai memenuhi tinggi layar dan membuat area konten menjadi 0 px.
 class ShellScreen extends StatefulWidget {
   const ShellScreen({super.key});
 
@@ -38,7 +45,8 @@ class _ShellScreenState extends State<ShellScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final sempit = constraints.maxWidth < 800;
-          final konten = IndexedStack(
+
+          final isi = IndexedStack(
             index: _index,
             children: [
               BerandaScreen(
@@ -55,50 +63,59 @@ class _ShellScreenState extends State<ShellScreen> {
             ],
           );
 
-          if (sempit) return konten;
+          final nav = _TipsenNavBar(selectedIndex: _index, onPilih: bukaTab);
 
-          // Di Chrome/layar lebar: frame "ponsel" terpusat dengan tinggi penuh.
+          if (sempit) {
+            return Column(
+              children: [
+                Expanded(child: isi),
+                nav,
+              ],
+            );
+          }
+
+          // Layar lebar: frame ponsel terpusat, nav ikut di dalam frame.
           return Container(
             decoration: const BoxDecoration(
               gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFEAF0F8), Color(0xFFF8FAFD), Color(0xFFE9EFF7)],
+                colors: [Color(0xFFE7EEF9), Color(0xFFF7FAFE), Color(0xFFE6EDF8)],
               ),
             ),
             child: Center(
               child: Container(
-                width: 560,
-                height: constraints.maxHeight - 16,
-                margin: const EdgeInsets.only(top: 16),
+                width: 520,
+                margin: const EdgeInsets.symmetric(vertical: 20),
                 decoration: BoxDecoration(
                   color: T.canvas,
-                  borderRadius:
-                      const BorderRadius.vertical(top: Radius.circular(22)),
-                  border: Border.all(color: const Color(0xFFE1E7EF)),
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(color: const Color(0xFFDDE5F0)),
                   boxShadow: [
                     BoxShadow(
-                      color: Colors.black.withValues(alpha: 0.07),
-                      blurRadius: 40,
-                      offset: const Offset(0, 16),
+                      color: const Color(0xFF1B2A46).withValues(alpha: 0.12),
+                      blurRadius: 44,
+                      offset: const Offset(0, 18),
                     ),
                   ],
                 ),
                 clipBehavior: Clip.antiAlias,
-                child: konten,
+                child: Column(
+                  children: [
+                    Expanded(child: isi),
+                    nav,
+                  ],
+                ),
               ),
             ),
           );
         },
       ),
-      bottomNavigationBar: _TipsenNavBar(
-        selectedIndex: _index,
-        onPilih: bukaTab,
-      ),
     );
   }
 }
 
+/// Navigasi bawah 4 tab. Selalu shrink-wrap (tidak pernah memuai).
 class _TipsenNavBar extends StatelessWidget {
   const _TipsenNavBar({required this.selectedIndex, required this.onPilih});
 
@@ -114,52 +131,28 @@ class _TipsenNavBar extends StatelessWidget {
       (Icons.person_rounded, 'Profil'),
     ];
 
-    return SafeArea(
-      top: false,
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final lebar = constraints.maxWidth;
-          final lebarNav = lebar >= 800 ? 460.0 : lebar;
-          final melayang = lebar >= 800;
-
-          final bar = NavigationBar(
-            selectedIndex: selectedIndex,
-            onDestinationSelected: onPilih,
-            destinations: [
-              for (final (icon, label) in items)
-                NavigationDestination(
-                  icon: Icon(icon),
-                  selectedIcon: Icon(icon, fill: 1),
-                  label: label,
-                ),
-            ],
-          );
-
-          if (!melayang) return bar;
-
-          // Di Chrome/layar lebar: nav melayang membulat di bawah frame.
-          return Center(
-            child: Container(
-              width: lebarNav,
-              margin: const EdgeInsets.only(bottom: 14),
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(T.rXl),
-                border: Border.all(color: T.border),
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withValues(alpha: 0.10),
-                    blurRadius: 24,
-                    offset: const Offset(0, 10),
-                  ),
-                ],
+    return Container(
+      decoration: const BoxDecoration(
+        color: Colors.white,
+        border: Border(top: BorderSide(color: Color(0xFFE7ECF3))),
+      ),
+      child: SafeArea(
+        top: false,
+        child: NavigationBar(
+          height: 66,
+          backgroundColor: Colors.white,
+          elevation: 0,
+          selectedIndex: selectedIndex,
+          onDestinationSelected: onPilih,
+          destinations: [
+            for (final (icon, label) in items)
+              NavigationDestination(
+                icon: Icon(icon),
+                selectedIcon: Icon(icon, fill: 1),
+                label: label,
               ),
-              child: ClipRRect(
-                borderRadius: BorderRadius.circular(T.rXl),
-                child: bar,
-              ),
-            ),
-          );
-        },
+          ],
+        ),
       ),
     );
   }
