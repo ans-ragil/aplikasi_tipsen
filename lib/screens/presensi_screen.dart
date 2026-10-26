@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/selfie_capture.dart';
 import '../core/theme.dart';
 import '../core/widgets.dart';
 import '../state/app_state.dart';
@@ -101,8 +102,17 @@ class _PresensiScreenState extends State<PresensiScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── Area selfie (simulasi) ───────────────────────
-            _AreaSelfie(siap: app.selfieSiap, onTap: app.ambilSelfie),
+            // ── Area selfie (kamera asli + fallback simulasi) ─
+            SelfieCapture(
+              foto: app.fotoSelfie,
+              simulasiAktif: app.selfieSimulasi,
+              onFoto: app.setFotoSelfie,
+              onSimulasi: () {
+                app.ambilSelfie();
+                showToast(context,
+                    'Mode simulasi aktif — presensi tanpa foto kamera.', ToastKind.info);
+              },
+            ),
             const SizedBox(height: 16),
 
             // ── Kartu lokasi / geofence ──────────────────────
@@ -121,101 +131,6 @@ class _PresensiScreenState extends State<PresensiScreen> {
               ),
           ],
         ),
-      ),
-    );
-  }
-}
-
-// ═══════════════════════════════════════════════════════════════
-// AREA SELFIE — simulasi kamera (nanti: image_picker)
-// ═══════════════════════════════════════════════════════════════
-class _AreaSelfie extends StatelessWidget {
-  const _AreaSelfie({required this.siap, required this.onTap});
-
-  final bool siap;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final app = context.read<AppState>();
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(24),
-        constraints: const BoxConstraints(minHeight: 210),
-        decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(T.rXl),
-          gradient: const LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: [Color(0xFF131D30), Color(0xFF0C1220)],
-          ),
-          border: Border.all(
-              color: T.accent.withValues(alpha: 0.55), width: 1.6),
-        ),
-        child: siap
-            ? Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 76,
-                    height: 76,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: const Color(0xFFDCE8FF),
-                      border: Border.all(color: const Color(0xFF34D399), width: 4),
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      app.pengguna.inisial,
-                      style: const TextStyle(
-                          fontSize: 22,
-                          fontWeight: FontWeight.w800,
-                          color: T.navy),
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Foto selfie siap digunakan',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w600,
-                          color: Colors.white)),
-                  const Text('Ketuk untuk mengambil ulang',
-                      style: TextStyle(fontSize: 11, color: Color(0xFF9EABC0))),
-                ],
-              )
-            : Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 60,
-                    height: 60,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Color(0xFF26344C),
-                    ),
-                    child: const Icon(Icons.photo_camera_rounded,
-                        color: Colors.white, size: 26),
-                  ),
-                  const SizedBox(height: 12),
-                  const Text('Ambil Foto Selfie',
-                      style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white)),
-                  const SizedBox(height: 4),
-                  const Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(Icons.wifi_rounded, size: 12, color: Color(0xFF9EABC0)),
-                      SizedBox(width: 5),
-                      Text('Kamera simulasi · mode demo',
-                          style: TextStyle(fontSize: 11, color: Color(0xFF9EABC0))),
-                    ],
-                  ),
-                ],
-              ),
       ),
     );
   }

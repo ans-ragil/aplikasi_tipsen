@@ -10,7 +10,10 @@ import 'admin_widgets.dart';
 /// Dashboard Admin: ringkasan statistik, grafik kehadiran, akses cepat,
 /// aktivitas terbaru, dan informasi penting.
 class AdminDashboardScreen extends StatelessWidget {
-  const AdminDashboardScreen({super.key});
+  const AdminDashboardScreen({super.key, required this.onPindahMenu});
+
+  /// Mengganti menu aktif pada [AdminShell] (0..5).
+  final ValueChanged<int> onPindahMenu;
 
   @override
   Widget build(BuildContext context) {
@@ -133,27 +136,21 @@ class AdminDashboardScreen extends StatelessWidget {
                     ikon: Icons.fact_check_rounded,
                     judul: 'Setujui Pengajuan',
                     ket: '${app.totalMenungguPersetujuan} menunggu',
-                    onTap: () => showToast(context,
-                        'Buka menu Persetujuan Cuti & Izin di sidebar.',
-                        ToastKind.info),
+                    onTap: () => onPindahMenu(3),
                   ),
                   const SizedBox(height: 10),
                   _TombolAkses(
                     ikon: Icons.my_location_rounded,
                     judul: 'Live Tracking',
                     ket: 'Radius ${app.geofence.radiusMeter} m',
-                    onTap: () => showToast(context,
-                        'Buka menu Live Tracking & Geofence di sidebar.',
-                        ToastKind.info),
+                    onTap: () => onPindahMenu(2),
                   ),
                   const SizedBox(height: 10),
                   _TombolAkses(
                     ikon: Icons.download_rounded,
                     judul: 'Ekspor Laporan',
                     ket: 'Excel / PDF',
-                    onTap: () => showToast(context,
-                        'Buka menu Laporan & Ekspor Data di sidebar.',
-                        ToastKind.info),
+                    onTap: () => onPindahMenu(5),
                   ),
                 ],
               ),

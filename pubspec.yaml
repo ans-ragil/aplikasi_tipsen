@@ -39,6 +39,9 @@ dependencies:
   # Font Inter sesuai style guide TIPSEN
   google_fonts: ^6.2.1
 
+  # Kamera asli untuk selfie presensi (mendukung web/Chrome)
+  camera: ^0.12.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

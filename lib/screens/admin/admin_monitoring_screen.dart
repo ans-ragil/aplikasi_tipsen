@@ -129,10 +129,13 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
           child: data.isEmpty
               ? const _KosongMonitoring()
               : AdminTable(
+                  lebarMinimal: 900,
+                  flex: const [3, 1, 1, 2, 1, 2, 1],
+                  onTapBaris: (i) => _bukaDetail(context, data[i]),
                   kolom: const [
                     'Karyawan',
-                    'Jam Masuk',
-                    'Jam Pulang',
+                    'Masuk',
+                    'Pulang',
                     'Lokasi',
                     'Status',
                     'Keterangan',
@@ -147,13 +150,18 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
                           subjudul: m.jabatan,
                         ),
                         Text(m.jamMasuk,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: 12, fontWeight: FontWeight.w600)),
                         Text(m.jamPulang,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: 12, color: T.textSecondary)),
                         Text(m.lokasi,
                             maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: 11, color: T.textSecondary)),
                         AppBadge(
@@ -166,6 +174,8 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
                           },
                         ),
                         Text(m.keterangan,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
                             style: const TextStyle(
                                 fontSize: 11, color: T.textSecondary)),
                         AdminTextAction(
@@ -189,10 +199,12 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
         children: [
           Row(
             children: [
-              AdminEmployeeCell(
-                inisial: m.inisial,
-                nama: m.nama,
-                subjudul: m.jabatan,
+              Expanded(
+                child: AdminEmployeeCell(
+                  inisial: m.inisial,
+                  nama: m.nama,
+                  subjudul: m.jabatan,
+                ),
               ),
               IconButton(
                 onPressed: () => Navigator.of(context).pop(),

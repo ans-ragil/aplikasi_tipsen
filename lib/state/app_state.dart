@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter/material.dart';
 
 import '../models/models.dart';
@@ -26,7 +28,15 @@ class AppState extends ChangeNotifier {
 
   // ── Presensi hari ini ────────────────────────────────────────
   LangkahPresensi langkah = LangkahPresensi.belumClockIn;
-  bool selfieSiap = false;
+
+  /// Foto selfie hasil kamera (null bila belum ada).
+  Uint8List? fotoSelfie;
+
+  /// True bila memakai mode simulasi (kamera tidak tersedia).
+  bool selfieSimulasi = false;
+
+  bool get selfieSiap => fotoSelfie != null || selfieSimulasi;
+
   bool lokasiDiizinkan = false;
   bool dalamRadius = true;
   int jarakMeter = 12;
@@ -80,7 +90,8 @@ class AppState extends ChangeNotifier {
   void keluar() {
     sesi = SesiStatus.belumLogin;
     langkah = LangkahPresensi.belumClockIn;
-    selfieSiap = false;
+    fotoSelfie = null;
+    selfieSimulasi = false;
     lokasiDiizinkan = false;
     dalamRadius = true;
     jarakMeter = 12;
@@ -91,7 +102,15 @@ class AppState extends ChangeNotifier {
   // PRESENSI
   // ════════════════════════════════════════════════════════════
   void ambilSelfie() {
-    selfieSiap = !selfieSiap;
+    fotoSelfie = null;
+    selfieSimulasi = !selfieSimulasi;
+    notifyListeners();
+  }
+
+  /// Simpan hasil jepretan kamera (null = hapus / ambil ulang).
+  void setFotoSelfie(Uint8List? bytes) {
+    fotoSelfie = bytes;
+    if (bytes != null) selfieSimulasi = false;
     notifyListeners();
   }
 
@@ -120,6 +139,7 @@ class AppState extends ChangeNotifier {
       selfie: selfieSiap,
       keterangan:
           dalamRadius ? 'Presensi di dalam radius kantor' : 'Presensi WFH / luar radius',
+      foto: fotoSelfie,
     );
     _presensiHariIni = catatan;
     langkah = LangkahPresensi.sudahClockIn;

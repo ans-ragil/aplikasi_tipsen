@@ -138,35 +138,50 @@ class DetailPresensiScreen extends StatelessWidget {
               AppCard(
                 child: Row(
                   children: [
-                    Container(
-                      width: 64,
-                      height: 64,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: const Color(0xFFDCE8FF),
-                        border: Border.all(
-                            color: presensi.selfie
-                                ? const Color(0xFF34D399)
-                                : T.border,
-                            width: 3),
+                    if (presensi.foto != null)
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(T.rMd),
+                        child: SizedBox(
+                          width: 72,
+                          height: 72,
+                          child: Image.memory(presensi.foto!, fit: BoxFit.cover),
+                        ),
+                      )
+                    else
+                      Container(
+                        width: 72,
+                        height: 72,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: const Color(0xFFDCE8FF),
+                          border: Border.all(
+                              color: presensi.selfie
+                                  ? const Color(0xFF34D399)
+                                  : T.border,
+                              width: 3),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(Icons.person_rounded,
+                            size: 32, color: T.navy),
                       ),
-                      alignment: Alignment.center,
-                      child: const Icon(Icons.person_rounded,
-                          size: 30, color: T.navy),
-                    ),
                     const SizedBox(width: 14),
-                    const Expanded(
+                    Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text('Foto selfie presensi',
-                              style: TextStyle(
-                                  fontSize: 13, fontWeight: FontWeight.w700)),
-                          SizedBox(height: 4),
                           Text(
-                            'Foto diambil saat presensi (data simulasi, '
-                            'tidak menampilkan wajah asli).',
-                            style: TextStyle(
+                            presensi.foto != null
+                                ? 'Foto selfie dari kamera'
+                                : 'Foto selfie presensi',
+                            style: const TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.w700),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            presensi.foto != null
+                                ? 'Foto diambil langsung dari kamera perangkat saat presensi.'
+                                : 'Tidak ada foto kamera — presensi dicatat dengan mode simulasi.',
+                            style: const TextStyle(
                                 fontSize: 11.5,
                                 color: T.textSecondary,
                                 height: 1.45),

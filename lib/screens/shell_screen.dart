@@ -38,7 +38,7 @@ class _ShellScreenState extends State<ShellScreen> {
       body: LayoutBuilder(
         builder: (context, constraints) {
           final sempit = constraints.maxWidth < 800;
-          Widget konten = IndexedStack(
+          final konten = IndexedStack(
             index: _index,
             children: [
               BerandaScreen(
@@ -55,21 +55,40 @@ class _ShellScreenState extends State<ShellScreen> {
             ],
           );
 
-          if (!sempit) {
-            // Frame "ponsel" terpusat di Chrome — seperti mockup Figma.
-            konten = Center(
+          if (sempit) return konten;
+
+          // Di Chrome/layar lebar: frame "ponsel" terpusat dengan tinggi penuh.
+          return Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFEAF0F8), Color(0xFFF8FAFD), Color(0xFFE9EFF7)],
+              ),
+            ),
+            child: Center(
               child: Container(
                 width: 560,
-                margin: const EdgeInsets.only(top: 20),
-                decoration: const BoxDecoration(
+                height: constraints.maxHeight - 16,
+                margin: const EdgeInsets.only(top: 16),
+                decoration: BoxDecoration(
                   color: T.canvas,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(T.rXl)),
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(22)),
+                  border: Border.all(color: const Color(0xFFE1E7EF)),
+                  boxShadow: [
+                    BoxShadow(
+                      color: Colors.black.withValues(alpha: 0.07),
+                      blurRadius: 40,
+                      offset: const Offset(0, 16),
+                    ),
+                  ],
                 ),
+                clipBehavior: Clip.antiAlias,
                 child: konten,
               ),
-            );
-          }
-          return konten;
+            ),
+          );
         },
       ),
       bottomNavigationBar: _TipsenNavBar(

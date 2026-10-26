@@ -111,6 +111,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
           title: 'Rekap Kehadiran Karyawan',
           subtitle: '$_periode · ${data.length} karyawan',
           child: AdminTable(
+            lebarMinimal: 820,
+            flex: const [3, 1, 1, 1, 2, 1],
             kolom: const [
               'Karyawan',
               'Hadir',

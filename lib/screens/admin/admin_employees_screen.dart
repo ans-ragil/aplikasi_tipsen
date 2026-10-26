@@ -324,10 +324,12 @@ class _KartuKaryawan extends StatelessWidget {
         children: [
           Row(
             children: [
-              AdminEmployeeCell(
-                inisial: k.inisial,
-                nama: k.nama,
-                subjudul: k.jabatan,
+              Expanded(
+                child: AdminEmployeeCell(
+                  inisial: k.inisial,
+                  nama: k.nama,
+                  subjudul: k.jabatan,
+                ),
               ),
               const SizedBox(width: 6),
               AppBadge(k.status,

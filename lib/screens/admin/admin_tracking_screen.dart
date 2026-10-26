@@ -402,10 +402,12 @@ class _DaftarPosisi extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
               child: Row(
                 children: [
-                  AdminEmployeeCell(
-                    inisial: m.inisial,
-                    nama: m.nama,
-                    subjudul: m.jabatan,
+                  Expanded(
+                    child: AdminEmployeeCell(
+                      inisial: m.inisial,
+                      nama: m.nama,
+                      subjudul: m.jabatan,
+                    ),
                   ),
                   const SizedBox(width: 8),
                   AppBadge(

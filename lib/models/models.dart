@@ -1,6 +1,8 @@
 /// Model data TIPSEN (fase simulasi — nanti dipetakan ke koleksi Firestore).
 library;
 
+import 'dart:typed_data';
+
 /// Peran akun — dipakai nanti saat ada portal admin.
 enum PeranAkun { karyawan, adminHC }
 
@@ -62,6 +64,7 @@ class Presensi {
     this.clockOut,
     this.selfie = false,
     this.keterangan,
+    this.foto,
   });
 
   final String id;
@@ -74,6 +77,9 @@ class Presensi {
   final String? clockOut;
   final bool selfie;
   final String? keterangan;
+
+  /// Foto selfie hasil kamera (bytes) — null bila memakai mode simulasi.
+  final Uint8List? foto;
 
   Presensi copyWith({
     String? clockIn,
@@ -91,6 +97,7 @@ class Presensi {
         clockOut: clockOut ?? this.clockOut,
         selfie: selfie,
         keterangan: keterangan,
+        foto: foto,
       );
 
   /// "Senin, 26 Okt 2026"

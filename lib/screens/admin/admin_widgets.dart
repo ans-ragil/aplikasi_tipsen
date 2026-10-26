@@ -103,18 +103,30 @@ class AdminPanel extends StatelessWidget {
 }
 
 /// Tabel sederhana dengan header abu-abu dan scroll horizontal.
+///
+/// Setiap sel diberi lebar berbobot ([flex]) dan di-clip agar teks panjang
+/// terpotong rapi (tidak menimpa kolom sebelah).
 class AdminTable extends StatelessWidget {
   const AdminTable({
     super.key,
     required this.kolom,
     required this.baris,
-    this.lebarMinimal = 760,
+    this.flex,
+    this.lebarMinimal = 860,
+    this.onTapBaris,
   });
 
   /// Label kolom; panjangnya harus sama dengan jumlah sel tiap baris.
   final List<String> kolom;
   final List<List<Widget>> baris;
+
+  /// Bobot lebar tiap kolom; default sama rata.
+  final List<int>? flex;
   final double lebarMinimal;
+  final void Function(int index)? onTapBaris;
+
+  List<int> get _flex =>
+      flex ?? List<int>.filled(kolom.length, 1, growable: false);
 
   @override
   Widget build(BuildContext context) {
@@ -133,31 +145,56 @@ class AdminTable extends StatelessWidget {
               ),
               child: Row(
                 children: [
-                  for (final k in kolom)
+                  for (var i = 0; i < kolom.length; i++)
                     Expanded(
-                      child: Text(k.toUpperCase(),
+                      flex: _flex[i],
+                      child: ClipRect(
+                        child: Text(
+                          kolom[i].toUpperCase(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
                           style: const TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: 0.4,
-                              color: T.textSecondary)),
+                            fontSize: 10,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 0.4,
+                            color: T.textSecondary,
+                          ),
+                        ),
+                      ),
                     ),
                 ],
               ),
             ),
-            for (var i = 0; i < baris.length; i++)
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
-                decoration: const BoxDecoration(
-                  border: Border(
-                      bottom: BorderSide(color: Color(0xFFEDF0F5))),
-                ),
-                child: Row(
-                  children: [
-                    for (final sel in baris[i])
-                      Expanded(child: sel),
-                  ],
+            for (var r = 0; r < baris.length; r++)
+              Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: onTapBaris == null ? null : () => onTapBaris!(r),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 13),
+                    decoration: const BoxDecoration(
+                      border: Border(
+                          bottom: BorderSide(color: Color(0xFFEDF0F5))),
+                    ),
+                    child: Row(
+                      children: [
+                        for (var c = 0; c < baris[r].length; c++)
+                          Expanded(
+                            flex: c < _flex.length ? _flex[c] : 1,
+                            child: Padding(
+                              padding: const EdgeInsets.only(right: 10),
+                              child: ClipRect(
+                                child: Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: baris[r][c],
+                                ),
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
                 ),
               ),
           ],

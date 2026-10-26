@@ -38,13 +38,15 @@ class _AdminShellState extends State<AdminShell> {
 
     final isi = IndexedStack(
       index: _menu,
-      children: const [
-        AdminDashboardScreen(),
-        AdminMonitoringScreen(),
-        AdminTrackingScreen(),
-        AdminApprovalScreen(),
-        AdminEmployeesScreen(),
-        AdminReportsScreen(),
+      children: [
+        AdminDashboardScreen(
+          onPindahMenu: (i) => setState(() => _menu = i),
+        ),
+        const AdminMonitoringScreen(),
+        const AdminTrackingScreen(),
+        const AdminApprovalScreen(),
+        const AdminEmployeesScreen(),
+        const AdminReportsScreen(),
       ],
     );
 
