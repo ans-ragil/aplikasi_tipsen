@@ -1,30 +1,30 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
+// Uji asap (smoke test) aplikasi TIPSEN:
+// memastikan halaman Login tampil saat aplikasi pertama dibuka.
 
-import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:aplikasi_tipsen/main.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
-
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
-
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
+  testWidgets('Halaman Login tampil saat aplikasi dibuka',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const TipsenApp());
     await tester.pump();
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+    expect(find.text('TIPSEN'), findsOneWidget);
+    expect(find.text('Masuk Sekarang'), findsOneWidget);
+    expect(find.text('Email Karyawan'), findsOneWidget);
+  });
+
+  testWidgets('Validasi email kosong menampilkan pesan kesalahan',
+      (WidgetTester tester) async {
+    await tester.pumpWidget(const TipsenApp());
+    await tester.pump();
+
+    await tester.tap(find.text('Masuk Sekarang'));
+    await tester.pump();
+
+    expect(find.text('Email karyawan wajib diisi.'), findsOneWidget);
+    expect(find.text('Kata sandi wajib diisi.'), findsOneWidget);
   });
 }
