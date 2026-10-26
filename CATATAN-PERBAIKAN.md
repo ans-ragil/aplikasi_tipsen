@@ -259,3 +259,46 @@ menambahkan foto profil"*.
 `flutter analyze` 0 isu · `flutter build web` sukses · `flutter test` 3/3 lulus ·
 uji Chrome 1440 px dan 900/600 px: **0 error runtime**, unggah foto berhasil di
 sisi karyawan maupun HC, dan Clock In karyawan tetap muncul di Monitoring HC.
+
+---
+
+## 8. Tiga koreksi tampilan web (26 Okt 2026, lanjutan)
+
+### 8.1 Halaman login masih terasa "mobile"
+
+**Akar masalah:** `LoginScreen` hanya satu `Column` selebar maksimal 430 px yang
+di-`Center` di tengah layar. Di monitor 1440 px halaman terlihat seperti
+tangkapan layar ponsel yang diperbesar — tidak ada manfaat dari ruang lebar.
+
+**Perbaikan:** tata letak dua panel.
+
+| Bagian | Isi |
+|---|---|
+| Panel kiri (52%, gradien navy) | Logo + wordmark, headline 30 px, paragraf pengantar, 3 keunggulan (geofence, selfie, sinkron portal HC), footer versi |
+| Panel kanan | Kartu form 430 px (email, sandi, lupa sandi, tombol masuk, akun demo, tombol demo HC, catatan privasi) |
+
+Di bawah **900 px** panel kiri berubah menjadi pita merek ringkas (logo +
+headline + satu kalimat) dan form mengambil lebar penuh — tidak ada lagi kolom
+sempit yang mengapung di layar besar.
+
+### 8.2 Jam berjalan dobel
+
+`_JamTopBar` (widget `Timer` 1 detik di topbar karyawan) dihapus beserta
+`import 'dart:async'`. Jam hanya ada di kartu hero Beranda. Konsekuensi:
+`jamLengkap`/`tanggalSingkat` tidak lagi dipakai di shell, dan ruang kanan
+topbar kini hanya berisi avatar + tombol keluar sehingga lebih lega.
+
+### 8.3 Tombol "Tambah Foto" dobel di Profil
+
+Ada dua jalan menuju fungsi yang sama: ikon kamera di lingkaran avatar **dan**
+`TextButton.icon` bertuliskan "Tambah Foto"/"Ganti Foto". Tombol teks dihapus
+di **kedua varian** (web dan sempit) serta di **Profil HC**, sehingga satu-
+satunya pemicu adalah ikon kamera pada avatar — sesuai permintaan. Baris
+"Foto Profil" di daftar Pengaturan tetap ada karena berfungsi sebagai penanda
+status (sudah/belum ada foto) dan jalan untuk menghapus foto.
+
+### 8.4 Verifikasi
+
+`flutter analyze` 0 isu · `flutter test` 3/3 lulus · `flutter build web` sukses ·
+Chrome 1440/900/600 px: login dua panel, topbar tanpa jam, avatar kamera saja,
+**0 error runtime**.

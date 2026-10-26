@@ -187,18 +187,6 @@ class AdminProfilScreen extends StatelessWidget {
                           ],
                         ),
                       ),
-                      TextButton.icon(
-                        onPressed: () => _menuFoto(context),
-                        icon: const Icon(Icons.photo_camera_rounded, size: 15),
-                        label: Text(app.fotoAdmin == null
-                            ? 'Tambah Foto'
-                            : 'Ganti Foto'),
-                        style: TextButton.styleFrom(
-                          foregroundColor: T.accent,
-                          textStyle: const TextStyle(
-                              fontSize: 11.5, fontWeight: FontWeight.w700),
-                        ),
-                      ),
                     ],
                   ),
                   const SizedBox(height: 16),

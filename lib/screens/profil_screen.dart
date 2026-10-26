@@ -141,8 +141,9 @@ class ProfilScreen extends StatelessWidget {
     final user = app.pengguna;
 
     // ── Kartu identitas ───────────────────────────────────────
-    // Web: avatar di kiri, identitas di tengah, tombol foto di kanan
-    // (pola yang sama dengan halaman Profil HC).
+    // Satu-satunya jalan untuk mengubah foto adalah ikon kamera yang menempel
+    // di lingkaran avatar (tidak ada tombol teks tambahan yang dobel).
+    // Web: avatar di kiri, identitas di kanan.
     // Sempit: susunan bertumpuk seperti aplikasi ponsel.
     Widget kartuIdentitas(bool web) {
       if (web) {
@@ -188,22 +189,6 @@ class ProfilScreen extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
-              TextButton.icon(
-                onPressed: () => _menuFoto(context),
-                icon: const Icon(Icons.photo_camera_rounded, size: 15),
-                label: Text(app.fotoProfil == null
-                    ? 'Tambah Foto'
-                    : 'Ganti Foto'),
-                style: TextButton.styleFrom(
-                  foregroundColor: Colors.white,
-                  backgroundColor: Colors.white.withValues(alpha: 0.14),
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  textStyle: const TextStyle(
-                      fontSize: 11.5, fontWeight: FontWeight.w700),
-                ),
-              ),
             ],
           ),
         );
@@ -241,20 +226,6 @@ class ProfilScreen extends StatelessWidget {
                     fontSize: 11.5, color: Color(0xFFCBDCFF))),
             const SizedBox(height: 10),
             const AppBadge('Karyawan Aktif', tone: AppBadgeTone.onHero),
-            const SizedBox(height: 12),
-            TextButton.icon(
-              onPressed: () => _menuFoto(context),
-              icon: const Icon(Icons.photo_camera_rounded, size: 15),
-              label: Text(app.fotoProfil == null
-                  ? 'Tambahkan foto profil'
-                  : 'Ganti foto profil'),
-              style: TextButton.styleFrom(
-                foregroundColor: const Color(0xFFCBDCFF),
-                minimumSize: const Size(0, 34),
-                textStyle: const TextStyle(
-                    fontSize: 11, fontWeight: FontWeight.w700),
-              ),
-            ),
           ],
         ),
       );

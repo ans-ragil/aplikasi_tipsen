@@ -1,11 +1,8 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../core/widgets.dart';
-import '../models/models.dart';
 import '../state/app_state.dart';
 import 'beranda_screen.dart';
 import 'presensi_screen.dart';
@@ -256,8 +253,8 @@ class _TopBar extends StatelessWidget {
             ],
           ),
           const Spacer(),
-          if (web) const _JamTopBar(),
-          if (web) const SizedBox(width: 18),
+          // Jam berjalan sengaja tidak ditampilkan di sini: satu-satunya jam
+          // aplikasi ada di kartu hero Beranda, supaya tidak dobel.
           InkWell(
             onTap: onProfil,
             borderRadius: BorderRadius.circular(T.rMd),
@@ -304,51 +301,6 @@ class _TopBar extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Jam berjalan di topbar (hanya tampil di versi web).
-class _JamTopBar extends StatefulWidget {
-  const _JamTopBar();
-
-  @override
-  State<_JamTopBar> createState() => _JamTopBarState();
-}
-
-class _JamTopBarState extends State<_JamTopBar> {
-  Timer? _timer;
-  DateTime _now = DateTime.now();
-
-  @override
-  void initState() {
-    super.initState();
-    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
-      if (mounted) setState(() => _now = DateTime.now());
-    });
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.end,
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Text(jamLengkap(_now),
-            style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w800,
-                color: Colors.white,
-                letterSpacing: 0.4)),
-        Text(tanggalSingkat(_now),
-            style: const TextStyle(fontSize: 10, color: Color(0xFF8F9CB1))),
-      ],
     );
   }
 }

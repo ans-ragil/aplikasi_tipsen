@@ -145,7 +145,7 @@ tetap terbaca tanpa geser horizontal.
 | Sebelum | Sesudah |
 |---|---|
 | Frame 520 px di tengah, nav bawah, konten satu kolom | **Topbar navy + sidebar 244 px + area konten maksimal 1180 px**, sama seperti portal HC |
-| Tidak ada identitas produk di atas | Topbar berisi logo, jam berjalan, dan avatar pengguna |
+| Tidak ada identitas produk di atas | Topbar berisi logo, nama, dan avatar pengguna |
 | Semua konten menumpuk ke bawah | Beranda, Presensi, Riwayat, dan Profil memakai **dua kolom** |
 
 Perilaku responsif: **≥ 1000 px** memakai sidebar; **< 1000 px** otomatis
@@ -173,6 +173,18 @@ layar lebar tidak menyisakan ruang kosong.
 - Disimpan di kunci terpisah `tipsen.foto.v1` agar penyimpanan data presensi
   tidak ikut gagal bila kuota localStorage menipis.
 - Foto HC juga muncul di topbar portal HC dan halaman Profil & Pengaturan.
+
+## Penyempurnaan web lanjutan (26 Okt 2026, lanjutan 3)
+
+Tiga koreksi dari uji coba di browser:
+
+| # | Catatan | Perbaikan |
+|---|---|---|
+| 1 | Halaman login masih terasa seperti aplikasi ponsel (kolom 430 px di tengah) | Login ditulis ulang menjadi **dua panel**: panel merek navy di kiri (logo, headline, 3 keunggulan aplikasi) + kartu form di kanan. Di bawah **900 px** otomatis menjadi satu kolom dengan pita merek ringkas di atas |
+| 2 | Jam berjalan tampil dobel (topbar + kartu hero Beranda) | Jam di topbar **dihapus**; satu-satunya jam aplikasi ada di kartu hero Beranda |
+| 3 | Tombol "Tambah Foto" dobel di halaman Profil | Tombol teks **dihapus** (karyawan & HC); penggantian foto hanya lewat **ikon kamera di lingkaran avatar** |
+
+Titik henti responsif login: **≥ 900 px** dua panel · **< 900 px** satu kolom.
 
 
 ## Berkas kode utama
