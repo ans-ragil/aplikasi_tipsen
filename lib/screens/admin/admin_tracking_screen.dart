@@ -1,8 +1,11 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme.dart';
 import '../../core/widgets.dart';
+import '../../models/models.dart';
 import '../../state/app_state.dart';
 import 'admin_widgets.dart';
 
@@ -15,7 +18,7 @@ class AdminTrackingScreen extends StatefulWidget {
 }
 
 class _AdminTrackingScreenState extends State<AdminTrackingScreen> {
-  late double _radius = 50;
+  double _radius = 50;
 
   @override
   void initState() {
@@ -26,47 +29,176 @@ class _AdminTrackingScreenState extends State<AdminTrackingScreen> {
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+    final data = app.monitoringHariIni;
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
-        const AdminPageTitle(
+        AdminPageTitle(
           title: 'Live Tracking & Geofence',
           subtitle:
-              'Pantau posisi karyawan terhadap radius kantor secara simulasi.',
+              'Pantau posisi presensi karyawan terhadap area kantor yang ditetapkan.',
+          actions: [
+            AppBadge('Radius ${app.geofence.radiusMeter} m',
+                tone: AppBadgeTone.blue),
+            AppButton(
+              label: 'Simpan Konfigurasi',
+              icon: Icons.save_rounded,
+              expand: false,
+              height: 40,
+              onPressed: () {
+                app.aturRadius(_radius.round());
+                showToast(
+                    context,
+                    'Radius geofence disimpan: ${_radius.round()} meter.',
+                    ToastKind.success);
+              },
+            ),
+          ],
         ),
         const SizedBox(height: 18),
+
         LayoutBuilder(
           builder: (context, c) {
-            final lebar = c.maxWidth > 1000;
-            final peta = _PetaKartu(radius: app.geofence.radiusMeter);
-            final panel = Column(
-              children: [
-                _KartuPengaturan(
-                  radius: _radius,
-                  onUbah: (v) => setState(() => _radius = v),
-                  onSimpan: () {
-                    context.read<AppState>().aturRadius(_radius.round());
-                    showToast(
-                        context,
-                        'Radius kantor diperbarui menjadi ${_radius.round()} m.',
-                        ToastKind.success);
-                  },
-                ),
-                const SizedBox(height: 16),
-                _DaftarPosisi(radius: app.geofence.radiusMeter),
-              ],
+            final lebar = c.maxWidth > 980;
+            final peta = AdminPanel(
+              title: 'Peta Area Kantor',
+              subtitle: app.geofence.namaKantor,
+              trailing: AppBadge(
+                '${app.geofence.latitude.toStringAsFixed(4)}, '
+                '${app.geofence.longitude.toStringAsFixed(4)}',
+                tone: AppBadgeTone.slate,
+              ),
+              child: Column(
+                children: [
+                  _Peta(
+                    radius: _radius,
+                    jumlahDalam: data
+                        .where((m) =>
+                            m.status != StatusPresensi.wfh &&
+                            m.status != StatusPresensi.izinDisetujui)
+                        .length,
+                    jumlahLuar: data
+                        .where((m) => m.status == StatusPresensi.wfh)
+                        .length,
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      const Icon(Icons.tune_rounded, size: 16, color: T.accent),
+                      const SizedBox(width: 8),
+                      const Text('Radius geofence',
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.w700)),
+                      Expanded(
+                        child: Slider(
+                          value: _radius.clamp(20, 200),
+                          min: 20,
+                          max: 200,
+                          divisions: 18,
+                          activeColor: T.accent,
+                          label: '${_radius.round()} m',
+                          onChanged: (v) {
+                            setState(() => _radius = v);
+                            context.read<AppState>().aturRadius(v.round());
+                          },
+                        ),
+                      ),
+                      SizedBox(
+                        width: 62,
+                        child: Text('${_radius.round()} m',
+                            textAlign: TextAlign.right,
+                            style: const TextStyle(
+                                fontSize: 12.5, fontWeight: FontWeight.w800)),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          'Radius menentukan batas area presensi. Presensi di luar '
+                          'radius otomatis dicatat sebagai WFH.',
+                          style: const TextStyle(
+                              fontSize: 11, color: T.textSecondary, height: 1.45),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      TextButton(
+                        onPressed: () {
+                          setState(() => _radius = 50);
+                          context.read<AppState>().aturRadius(50);
+                          showToast(context, 'Radius direset ke 50 meter.',
+                              ToastKind.info);
+                        },
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(0, 32),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          textStyle: const TextStyle(
+                              fontSize: 11, fontWeight: FontWeight.w700),
+                        ),
+                        child: const Text('Reset'),
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            );
+
+            final daftar = AdminPanel(
+              title: 'Status Posisi Karyawan',
+              subtitle: '${data.length} karyawan terpantau hari ini.',
+              child: data.isEmpty
+                  ? const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 24),
+                      child: Center(
+                        child: Text('Belum ada data posisi hari ini.',
+                            style: TextStyle(
+                                fontSize: 11.5, color: T.textSecondary)),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        for (final m in data)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: AdminEmployeeCell(
+                                    inisial: m.inisial,
+                                    nama: m.nama,
+                                    subjudul: m.lokasi,
+                                  ),
+                                ),
+                                const SizedBox(width: 8),
+                                AppBadge(
+                                  m.status == StatusPresensi.wfh
+                                      ? 'Luar radius'
+                                      : 'Dalam radius',
+                                  tone: m.status == StatusPresensi.wfh
+                                      ? AppBadgeTone.red
+                                      : AppBadgeTone.green,
+                                ),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
             );
 
             if (!lebar) {
-              return Column(children: [peta, const SizedBox(height: 16), panel]);
+              return Column(
+                children: [peta, const SizedBox(height: 16), daftar],
+              );
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(flex: 5, child: peta),
                 const SizedBox(width: 16),
-                Expanded(flex: 3, child: panel),
+                Expanded(flex: 3, child: daftar),
               ],
             );
           },
@@ -76,134 +208,160 @@ class _AdminTrackingScreenState extends State<AdminTrackingScreen> {
   }
 }
 
-// ═══════════════════════════════════════════════════════════════
-// PETA SIMULASI
-// ═══════════════════════════════════════════════════════════════
-class _PetaKartu extends StatelessWidget {
-  const _PetaKartu({required this.radius});
+/// Peta simulasi: grid jalan, lingkaran geofence, pin kantor & karyawan.
+class _Peta extends StatelessWidget {
+  const _Peta({
+    required this.radius,
+    required this.jumlahDalam,
+    required this.jumlahLuar,
+  });
 
-  final int radius;
+  final double radius;
+  final int jumlahDalam;
+  final int jumlahLuar;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: T.navyTopbar,
-        borderRadius: BorderRadius.circular(T.rXl),
-      ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.map_rounded, size: 16, color: Colors.white),
-              const SizedBox(width: 8),
-              const Expanded(
-                child: Text('Peta Geofence — Kantor Utama',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white)),
-              ),
-              AppBadge('Radius $radius m', tone: AppBadgeTone.onHero),
-            ],
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 420,
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(T.rMd),
-              child: LayoutBuilder(
-                builder: (context, c) {
-                  // Diameter lingkaran mengikuti radius (skala tampilan).
-                  final diameter = (radius * 2.2).clamp(60.0, c.maxWidth * 0.9);
-                  return Stack(
-                    children: [
-                      // Latar peta
-                      Positioned.fill(
-                        child: CustomPaint(painter: _PetaPainter()),
-                      ),
-                      // Lingkaran geofence
-                      Center(
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 250),
-                          width: diameter,
-                          height: diameter,
-                          decoration: BoxDecoration(
-                            shape: BoxShape.circle,
-                            color: T.accent.withValues(alpha: 0.16),
-                            border: Border.all(
-                                color: const Color(0xFF4E83FF), width: 2),
-                          ),
-                        ),
-                      ),
-                      // Pin kantor (pusat)
-                      const Center(child: _PinKantor()),
-                      // Pin karyawan di dalam radius
-                      const Positioned(
-                          left: 60, top: 90, child: _PinKaryawan(nama: 'Anisa · 12 m')),
-                      const Positioned(
-                          right: 80,
-                          bottom: 110,
-                          child: _PinKaryawan(nama: 'Fajar · 25 m')),
-                      // Pin karyawan di luar radius
-                      const Positioned(
-                          right: 26,
-                          top: 26,
-                          child: _PinKaryawan(nama: 'Rizky · 8,2 km', luar: true)),
-                      // Legend
-                      Positioned(
-                        left: 10,
-                        bottom: 10,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 10, vertical: 7),
-                          decoration: BoxDecoration(
-                            color: Colors.black.withValues(alpha: 0.45),
-                            borderRadius: BorderRadius.circular(T.rSm),
-                          ),
-                          child: const Row(
-                            children: [
-                              _Legenda(warna: Color(0xFF10B981), teks: 'Dalam radius'),
-                              SizedBox(width: 12),
-                              _Legenda(warna: Color(0xFFE11D48), teks: 'Luar radius'),
-                            ],
-                          ),
-                        ),
-                      ),
-                    ],
-                  );
-                },
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(T.rLg),
+      child: Container(
+        height: 320,
+        decoration: const BoxDecoration(color: Color(0xFF101A2B)),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: CustomPaint(
+                painter: _PetaPainter(radiusMeter: radius),
               ),
             ),
-          ),
-        ],
+            // Pin kantor
+            const Align(
+              alignment: Alignment.center,
+              child: _PinKantor(),
+            ),
+            // Pin karyawan (posisi tetap untuk simulasi)
+            const Positioned(
+                left: 60, top: 70, child: _PinKaryawan(label: 'FH', dalam: true)),
+            const Positioned(
+                right: 70, top: 110, child: _PinKaryawan(label: 'NS', dalam: true)),
+            const Positioned(
+                left: 90, bottom: 56, child: _PinKaryawan(label: 'BN', dalam: true)),
+            const Positioned(
+                right: 54,
+                bottom: 46,
+                child: _PinKaryawan(label: 'RP', dalam: false)),
+            // Legenda
+            Positioned(
+              left: 12,
+              bottom: 12,
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.black.withValues(alpha: 0.45),
+                  borderRadius: BorderRadius.circular(T.rSm),
+                  border: Border.all(color: Colors.white24),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('$jumlahDalam dalam radius · $jumlahLuar di luar',
+                        style: const TextStyle(
+                            fontSize: 10, color: Colors.white)),
+                    const SizedBox(height: 2),
+                    Text('Radius aktif ${radius.round()} m',
+                        style: const TextStyle(
+                            fontSize: 9.5, color: Color(0xFF8FA3C0))),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _Legenda extends StatelessWidget {
-  const _Legenda({required this.warna, required this.teks});
+class _PetaPainter extends CustomPainter {
+  _PetaPainter({required this.radiusMeter});
 
-  final Color warna;
-  final String teks;
+  final double radiusMeter;
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          width: 8,
-          height: 8,
-          decoration: BoxDecoration(color: warna, shape: BoxShape.circle),
-        ),
-        const SizedBox(width: 5),
-        Text(teks,
-            style: const TextStyle(fontSize: 9, color: Color(0xFFC7D2E0))),
-      ],
+  void paint(Canvas canvas, Size size) {
+    final tengah = Offset(size.width / 2, size.height / 2);
+
+    // Latar
+    canvas.drawRect(
+        Offset.zero & size, Paint()..color = const Color(0xFF101A2B));
+
+    // Grid
+    final grid = Paint()
+      ..color = const Color(0xFF1C2A42)
+      ..strokeWidth = 1;
+    for (var x = 0.0; x < size.width; x += 34) {
+      canvas.drawLine(Offset(x, 0), Offset(x, size.height), grid);
+    }
+    for (var y = 0.0; y < size.height; y += 34) {
+      canvas.drawLine(Offset(0, y), Offset(size.width, y), grid);
+    }
+
+    // Jalan
+    final jalan = Paint()
+      ..color = const Color(0xFF243552)
+      ..strokeWidth = 14
+      ..strokeCap = StrokeCap.round;
+    canvas.drawLine(Offset(0, size.height * 0.34),
+        Offset(size.width, size.height * 0.42), jalan);
+    canvas.drawLine(Offset(size.width * 0.28, 0),
+        Offset(size.width * 0.34, size.height), jalan);
+    canvas.drawLine(Offset(0, size.height * 0.76),
+        Offset(size.width, size.height * 0.68), jalan);
+
+    // Lingkaran geofence
+    final skala = size.width / 420;
+    final r = (18 + radiusMeter * 0.62) * skala;
+    canvas.drawCircle(
+      tengah,
+      r,
+      Paint()..color = const Color(0xFF2E7DFF).withValues(alpha: 0.14),
     );
+    canvas.drawCircle(
+      tengah,
+      r,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 2
+        ..color = const Color(0xFF4F9BFF),
+    );
+    // Garis bantu
+    final garis = Paint()
+      ..color = const Color(0xFF4F9BFF).withValues(alpha: 0.35)
+      ..strokeWidth = 1;
+    canvas.drawLine(tengah - Offset(r, 0), tengah + Offset(r, 0), garis);
+    canvas.drawLine(tengah - Offset(0, r), tengah + Offset(0, r), garis);
+    // Titik pusat
+    canvas.drawCircle(tengah, 5, Paint()..color = const Color(0xFF4F9BFF));
+    canvas.drawCircle(
+      tengah,
+      10,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 1.4
+        ..color = const Color(0xFF4F9BFF).withValues(alpha: 0.6),
+    );
+    // Aksen sudut
+    final sudut = Paint()..color = Colors.white.withValues(alpha: 0.06);
+    canvas.drawCircle(
+        Offset(size.width * 0.85, size.height * 0.2), 26, sudut);
+    canvas.drawCircle(Offset(size.width * 0.12, size.height * 0.72),
+        math.min(30, size.width * 0.08), sudut);
   }
+
+  @override
+  bool shouldRepaint(_PetaPainter oldDelegate) =>
+      oldDelegate.radiusMeter != radiusMeter;
 }
 
 class _PinKantor extends StatelessWidget {
@@ -215,32 +373,28 @@ class _PinKantor extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Container(
-          width: 36,
-          height: 36,
+          padding: const EdgeInsets.all(7),
           decoration: BoxDecoration(
-            color: T.accent,
-            borderRadius: BorderRadius.circular(T.rMd),
-            border: Border.all(color: Colors.white, width: 2),
+            color: const Color(0xFF4F9BFF),
+            shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withValues(alpha: 0.35),
-                blurRadius: 12,
+                color: const Color(0xFF4F9BFF).withValues(alpha: 0.6),
+                blurRadius: 14,
               ),
             ],
           ),
-          child: const Icon(Icons.business_rounded,
-              size: 18, color: Colors.white),
+          child: const Icon(Icons.business_rounded, size: 16, color: Colors.white),
         ),
         const SizedBox(height: 4),
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: const Color(0xFF111A2D),
+            color: Colors.black.withValues(alpha: 0.5),
             borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFF3B4C66)),
           ),
           child: const Text('Kantor',
-              style: TextStyle(fontSize: 8, color: Colors.white)),
+              style: TextStyle(fontSize: 8.5, color: Colors.white)),
         ),
       ],
     );
@@ -248,13 +402,14 @@ class _PinKantor extends StatelessWidget {
 }
 
 class _PinKaryawan extends StatelessWidget {
-  const _PinKaryawan({required this.nama, this.luar = false});
+  const _PinKaryawan({required this.label, required this.dalam});
 
-  final String nama;
-  final bool luar;
+  final String label;
+  final bool dalam;
 
   @override
   Widget build(BuildContext context) {
+    final warna = dalam ? const Color(0xFF34D399) : const Color(0xFFF87171);
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
@@ -262,171 +417,21 @@ class _PinKaryawan extends StatelessWidget {
           width: 26,
           height: 26,
           decoration: BoxDecoration(
+            color: warna,
             shape: BoxShape.circle,
-            color: luar ? const Color(0xFFE11D48) : const Color(0xFF10B981),
-            border: Border.all(color: Colors.white, width: 2),
-          ),
-          child: const Icon(Icons.person_rounded,
-              size: 13, color: Colors.white),
-        ),
-        const SizedBox(height: 3),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
-          decoration: BoxDecoration(
-            color: const Color(0xFF111A2D),
-            borderRadius: BorderRadius.circular(4),
-            border: Border.all(color: const Color(0xFF3B4C66)),
-          ),
-          child: Text(nama,
-              style: const TextStyle(fontSize: 7.5, color: Colors.white)),
-        ),
-      ],
-    );
-  }
-}
-
-/// Latar peta: titik grid + jalan horizontal/vertikal.
-class _PetaPainter extends CustomPainter {
-  @override
-  void paint(Canvas canvas, Size size) {
-    // Latar
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()..color = const Color(0xFF0B1220),
-    );
-
-    // Titik-titik grid
-    final dot = Paint()..color = const Color(0xFF314360);
-    for (double x = 9; x < size.width; x += 18) {
-      for (double y = 9; y < size.height; y += 18) {
-        canvas.drawCircle(Offset(x, y), 1.1, dot);
-      }
-    }
-
-    // Jalan
-    final jalan = Paint()..color = const Color(0xFF1C2A40);
-    canvas.drawRect(
-      Rect.fromLTWH(0, size.height * 0.5, size.width, 6),
-      jalan,
-    );
-    canvas.drawRect(
-      Rect.fromLTWH(size.width * 0.48, 0, 6, size.height),
-      jalan,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// PENGATURAN RADIUS
-// ═══════════════════════════════════════════════════════════════
-class _KartuPengaturan extends StatelessWidget {
-  const _KartuPengaturan({
-    required this.radius,
-    required this.onUbah,
-    required this.onSimpan,
-  });
-
-  final double radius;
-  final ValueChanged<double> onUbah;
-  final VoidCallback onSimpan;
-
-  @override
-  Widget build(BuildContext context) {
-    final app = context.watch<AppState>();
-    return AdminPanel(
-      title: 'Pengaturan Titik & Radius',
-      subtitle: 'Area presensi yang diizinkan',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(app.geofence.namaKantor,
-              style:
-                  const TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
-          const SizedBox(height: 2),
-          Text(app.geofence.koordinatLabel,
-              style: const TextStyle(fontSize: 11, color: T.textMuted)),
-          const SizedBox(height: 16),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Radius kantor',
-                  style: TextStyle(fontSize: 12, color: T.textSecondary)),
-              Text('${radius.round()} meter',
-                  style: const TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: T.accent)),
+            border: Border.all(color: Colors.white, width: 1.6),
+            boxShadow: [
+              BoxShadow(color: warna.withValues(alpha: 0.5), blurRadius: 10),
             ],
           ),
-          Slider(
-            value: radius,
-            min: 20,
-            max: 200,
-            divisions: 18,
-            activeColor: T.accent,
-            label: '${radius.round()} m',
-            onChanged: onUbah,
-          ),
-          const Text('Geser untuk melihat area geofence berubah.',
-              style: TextStyle(fontSize: 10.5, color: T.textMuted)),
-          const SizedBox(height: 14),
-          AppButton(
-            label: 'Simpan Pengaturan',
-            icon: Icons.save_rounded,
-            onPressed: onSimpan,
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _DaftarPosisi extends StatelessWidget {
-  const _DaftarPosisi({required this.radius});
-
-  final int radius;
-
-  @override
-  Widget build(BuildContext context) {
-    final app = context.watch<AppState>();
-    return AdminPanel(
-      title: 'Status Posisi Karyawan',
-      subtitle: 'Berdasarkan presensi terakhir hari ini',
-      child: Column(
-        children: [
-          for (final m in app.monitoring)
-            Padding(
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: AdminEmployeeCell(
-                      inisial: m.inisial,
-                      nama: m.nama,
-                      subjudul: m.jabatan,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  AppBadge(
-                    m.jarakMeter == 0
-                        ? 'Tidak ada data'
-                        : m.jarakMeter <= radius
-                            ? 'Dalam radius'
-                            : 'Luar radius',
-                    tone: m.jarakMeter == 0
-                        ? AppBadgeTone.slate
-                        : m.jarakMeter <= radius
-                            ? AppBadgeTone.green
-                            : AppBadgeTone.red,
-                  ),
-                ],
-              ),
-            ),
-        ],
-      ),
+          alignment: Alignment.center,
+          child: Text(label,
+              style: const TextStyle(
+                  fontSize: 8,
+                  fontWeight: FontWeight.w800,
+                  color: Color(0xFF0B1220))),
+        ),
+      ],
     );
   }
 }

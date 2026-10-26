@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../core/theme.dart';
+import '../core/widgets.dart';
 import 'beranda_screen.dart';
 import 'presensi_screen.dart';
 import 'profil_screen.dart';
@@ -29,6 +30,18 @@ class ShellScreen extends StatefulWidget {
 class _ShellScreenState extends State<ShellScreen> {
   int _index = 0;
   RiwayatFilter _filterRiwayat = RiwayatFilter.semua;
+
+  @override
+  void initState() {
+    super.initState();
+    // Toast selamat datang ditampilkan setelah frame pertama supaya bisa
+    // dirender oleh messenger di dalam frame (bukan oleh Scaffold terluar).
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showToast(context, 'Login berhasil. Selamat datang, Anisa!',
+          ToastKind.success);
+    });
+  }
 
   // Dipanggil dari Beranda (avatar, kartu statistik, menu cepat).
   void bukaTab(int index) => setState(() => _index = index);
@@ -63,12 +76,24 @@ class _ShellScreenState extends State<ShellScreen> {
             ],
           );
 
+          // ScaffoldMessenger + Scaffold lokal di dalam frame:
+          // • Scaffold terluar ShellScreen selebar jendela browser, sehingga
+          //   snackbar dirender di dasar halaman dan MENUTUPI navigasi bawah.
+          // • Dengan messenger + Scaffold sendiri di dalam frame, toast muncul
+          //   di dalam "ponsel", tepat di atas navigasi.
+          final isiBerToast = ScaffoldMessenger(
+            child: Scaffold(
+              backgroundColor: T.canvas,
+              body: isi,
+            ),
+          );
+
           final nav = _TipsenNavBar(selectedIndex: _index, onPilih: bukaTab);
 
           if (sempit) {
             return Column(
               children: [
-                Expanded(child: isi),
+                Expanded(child: isiBerToast),
                 nav,
               ],
             );
@@ -102,7 +127,7 @@ class _ShellScreenState extends State<ShellScreen> {
                 clipBehavior: Clip.antiAlias,
                 child: Column(
                   children: [
-                    Expanded(child: isi),
+                    Expanded(child: isiBerToast),
                     nav,
                   ],
                 ),
@@ -150,6 +175,9 @@ class _TipsenNavBar extends StatelessWidget {
                 icon: Icon(icon),
                 selectedIcon: Icon(icon, fill: 1),
                 label: label,
+                // Tooltip bawaan Material muncul saat kursor berhenti di nav
+                // dan menutupi label; untuk aplikasi web tidak diperlukan.
+                tooltip: '',
               ),
           ],
         ),

@@ -4,8 +4,10 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../core/widgets.dart';
 import '../state/app_state.dart';
+import 'bantuan_screen.dart';
+import 'ubah_sandi_screen.dart';
 
-/// Halaman Profil: informasi akun karyawan, ubah sandi (simulasi), logout.
+/// Halaman Profil karyawan: identitas, pengaturan akun, bantuan, logout.
 class ProfilScreen extends StatelessWidget {
   const ProfilScreen({super.key});
 
@@ -13,8 +15,8 @@ class ProfilScreen extends StatelessWidget {
     final keluar = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(T.rLg)),
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(T.rLg)),
         title: const Text('Keluar Akun?',
             style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
         content: const Text(
@@ -45,6 +47,11 @@ class ProfilScreen extends StatelessWidget {
     }
   }
 
+  void _buka(BuildContext context, Widget halaman) {
+    Navigator.of(context)
+        .push(MaterialPageRoute(builder: (_) => halaman));
+  }
+
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
@@ -53,7 +60,7 @@ class ProfilScreen extends StatelessWidget {
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(T.margin, 8, T.margin, 24),
+        padding: const EdgeInsets.fromLTRB(T.margin, 8, T.margin, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -95,11 +102,12 @@ class ProfilScreen extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                           color: Colors.white)),
                   const SizedBox(height: 3),
-                  Text(user.jabatan,
+                  Text('${user.jabatan} · ${user.departemen}',
+                      textAlign: TextAlign.center,
                       style: const TextStyle(
-                          fontSize: 12, color: Color(0xFFCBDCFF))),
+                          fontSize: 11.5, color: Color(0xFFCBDCFF))),
                   const SizedBox(height: 10),
-                  AppBadge('Karyawan Aktif', tone: AppBadgeTone.onHero),
+                  const AppBadge('Karyawan Aktif', tone: AppBadgeTone.onHero),
                 ],
               ),
             ),
@@ -123,57 +131,61 @@ class ProfilScreen extends StatelessWidget {
                   InfoTile(label: 'Departemen', value: user.departemen),
                   const Divider(height: 1),
                   InfoTile(label: 'Jadwal Kerja', value: user.jadwal),
+                  const Divider(height: 1),
+                  InfoTile(
+                      label: 'Presensi bulan ini',
+                      value: '${app.hadirBulan(DateTime.now())} hari'),
                 ],
               ),
             ),
             const SizedBox(height: 18),
 
             // ── Pengaturan ─────────────────────────────────
-            const SectionLabel('Pengaturan'),
+            const SectionLabel('Pengaturan Akun'),
             const SizedBox(height: 8),
-            AppCard(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              onTap: () => showToast(context,
-                  'Fitur ubah kata sandi akan tersedia setelah integrasi Firebase.',
-                  ToastKind.info),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                child: Row(
-                  children: [
-                    Icon(Icons.lock_reset_rounded, size: 19, color: T.accent),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text('Ubah Kata Sandi',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
-                    ),
-                    Icon(Icons.chevron_right_rounded,
-                        size: 18, color: T.textMuted),
-                  ],
-                ),
+            Container(
+              decoration: BoxDecoration(
+                color: T.card,
+                borderRadius: BorderRadius.circular(T.rLg),
+                border: Border.all(color: T.border),
               ),
-            ),
-            const SizedBox(height: 10),
-            AppCard(
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-              onTap: () => showToast(context,
-                  'Pusat bantuan TIPSEN (simulasi). Hubungi HC Admin bila ada kendala.',
-                  ToastKind.info),
-              child: const Padding(
-                padding: EdgeInsets.symmetric(vertical: 14),
-                child: Row(
-                  children: [
-                    Icon(Icons.help_outline_rounded, size: 19, color: T.accent),
-                    SizedBox(width: 10),
-                    Expanded(
-                      child: Text('Bantuan & Kebijakan Privasi',
-                          style: TextStyle(
-                              fontSize: 13, fontWeight: FontWeight.w600)),
+              child: Column(
+                children: [
+                  _BarisMenu(
+                    ikon: Icons.lock_reset_rounded,
+                    judul: 'Ubah Kata Sandi',
+                    ket: 'Perbarui kata sandi akun Anda',
+                    onTap: () => _buka(context, const UbahSandiScreen()),
+                  ),
+                  const Divider(height: 1),
+                  _BarisMenu(
+                    ikon: Icons.notifications_none_rounded,
+                    judul: 'Notifikasi',
+                    ket: app.notifikasiAktif
+                        ? 'Pengingat presensi aktif'
+                        : 'Pengingat presensi nonaktif',
+                    trailing: Switch(
+                      value: app.notifikasiAktif,
+                      activeThumbColor: T.accent,
+                      onChanged: (v) => app.aturNotifikasi(v),
                     ),
-                    Icon(Icons.chevron_right_rounded,
-                        size: 18, color: T.textMuted),
-                  ],
-                ),
+                    onTap: () => app.aturNotifikasi(!app.notifikasiAktif),
+                  ),
+                  const Divider(height: 1),
+                  _BarisMenu(
+                    ikon: Icons.help_outline_rounded,
+                    judul: 'Bantuan & Kebijakan Privasi',
+                    ket: 'FAQ, kontak HC, dan kebijakan data',
+                    onTap: () => _buka(context, const BantuanScreen()),
+                  ),
+                  const Divider(height: 1),
+                  _BarisMenu(
+                    ikon: Icons.info_outline_rounded,
+                    judul: 'Tentang Aplikasi',
+                    ket: 'Versi, teknologi, dan pengembang',
+                    onTap: () => _buka(context, const TentangScreen()),
+                  ),
+                ],
               ),
             ),
             const SizedBox(height: 18),
@@ -185,9 +197,66 @@ class ProfilScreen extends StatelessWidget {
             ),
             const SizedBox(height: 10),
             const Center(
-              child: Text('TIPSEN v1.0 · Data simulasi',
-                  style: TextStyle(fontSize: 11, color: T.textMuted)),
+              child: Text('TIPSEN v1.0.0 · Data tersimpan lokal di browser',
+                  style: TextStyle(fontSize: 10.5, color: T.textMuted)),
             ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _BarisMenu extends StatelessWidget {
+  const _BarisMenu({
+    required this.ikon,
+    required this.judul,
+    required this.ket,
+    required this.onTap,
+    this.trailing,
+  });
+
+  final IconData ikon;
+  final String judul;
+  final String ket;
+  final VoidCallback onTap;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: T.blueBg,
+                borderRadius: BorderRadius.circular(T.rSm),
+              ),
+              child: Icon(ikon, size: 17, color: T.accent),
+            ),
+            const SizedBox(width: 11),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(judul,
+                      style: const TextStyle(
+                          fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  const SizedBox(height: 2),
+                  Text(ket,
+                      style: const TextStyle(
+                          fontSize: 10.5, color: T.textSecondary)),
+                ],
+              ),
+            ),
+            trailing ??
+                const Icon(Icons.chevron_right_rounded,
+                    size: 18, color: T.textMuted),
           ],
         ),
       ),

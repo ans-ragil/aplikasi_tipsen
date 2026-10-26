@@ -7,8 +7,7 @@ import '../../models/models.dart';
 import '../../state/app_state.dart';
 import 'admin_widgets.dart';
 
-/// Manajemen Karyawan: pencarian, filter status, kartu karyawan, modal
-/// detail / edit / tambah.
+/// Manajemen Karyawan: daftar, tambah, ubah, nonaktifkan, hapus.
 class AdminEmployeesScreen extends StatefulWidget {
   const AdminEmployeesScreen({super.key});
 
@@ -18,19 +17,26 @@ class AdminEmployeesScreen extends StatefulWidget {
 
 class _AdminEmployeesScreenState extends State<AdminEmployeesScreen> {
   String _cari = '';
-  String _status = 'Semua status';
+  String _filter = 'Semua';
 
-  static const _opsiStatus = ['Semua status', 'Aktif', 'WFH'];
+  static const _opsiFilter = ['Semua', 'Aktif', 'WFH', 'Nonaktif'];
+  static const _departemen = [
+    'Teknologi Informasi',
+    'Produk',
+    'Keuangan',
+    'Human Capital',
+    'Pemasaran',
+  ];
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final data = app.karyawanAdmin.where((k) {
       final cocokCari = k.nama.toLowerCase().contains(_cari.toLowerCase()) ||
-          k.jabatan.toLowerCase().contains(_cari.toLowerCase()) ||
-          k.departemen.toLowerCase().contains(_cari.toLowerCase());
-      final cocokStatus = _status == 'Semua status' || k.status == _status;
-      return cocokCari && cocokStatus;
+          k.email.toLowerCase().contains(_cari.toLowerCase()) ||
+          k.jabatan.toLowerCase().contains(_cari.toLowerCase());
+      final cocokFilter = _filter == 'Semua' || k.status == _filter;
+      return cocokCari && cocokFilter;
     }).toList();
 
     return ListView(
@@ -38,252 +44,299 @@ class _AdminEmployeesScreenState extends State<AdminEmployeesScreen> {
       children: [
         AdminPageTitle(
           title: 'Manajemen Karyawan',
-          subtitle: '${app.totalKaryawan} karyawan terdaftar di TIPSEN.',
+          subtitle:
+              '${app.karyawanAdmin.length} karyawan terdaftar · '
+              '${app.totalKaryawan} aktif.',
           actions: [
             AppButton(
               label: 'Tambah Karyawan',
               icon: Icons.person_add_alt_1_rounded,
               expand: false,
               height: 40,
-              onPressed: () => _bukaForm(context),
+              onPressed: () => _bukaForm(context, null),
             ),
           ],
         ),
         const SizedBox(height: 18),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          crossAxisAlignment: WrapCrossAlignment.center,
-          children: [
-            AdminSearchField(
-              hint: 'Cari nama, jabatan, departemen…',
-              onChanged: (v) => setState(() => _cari = v),
-            ),
-            AdminFilterDropdown(
-              value: _status,
-              items: _opsiStatus,
-              onChanged: (v) => setState(() => _status = v),
-            ),
-            Text('${data.length} karyawan',
-                style: const TextStyle(fontSize: 11.5, color: T.textMuted)),
-          ],
-        ),
-        const SizedBox(height: 14),
-        if (data.isEmpty)
-          AdminPanel(
-            title: 'Tidak ada karyawan',
-            subtitle: 'Ubah kata kunci pencarian atau filter status.',
-            child: const Padding(
-              padding: EdgeInsets.symmetric(vertical: 26),
-              child: Center(
-                child: Icon(Icons.person_off_rounded,
-                    size: 34, color: T.textMuted),
+
+        AdminPanel(
+          title: 'Daftar Karyawan',
+          subtitle: 'Kelola data karyawan dan status keaktifannya.',
+          trailing: AppBadge('${data.length} ditampilkan',
+              tone: AppBadgeTone.slate),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  AdminSearchField(
+                    hint: 'Cari nama, jabatan, atau email…',
+                    onChanged: (v) => setState(() => _cari = v),
+                  ),
+                  AdminFilterDropdown(
+                    value: _filter,
+                    items: _opsiFilter,
+                    onChanged: (v) => setState(() => _filter = v),
+                  ),
+                ],
               ),
-            ),
-          )
-        else
-          LayoutBuilder(
-            builder: (context, c) {
-              final kolom = c.maxWidth > 1000 ? 3 : (c.maxWidth > 640 ? 2 : 1);
-              return GridView.builder(
-                shrinkWrap: true,
-                physics: const NeverScrollableScrollPhysics(),
-                itemCount: data.length,
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: kolom,
-                  crossAxisSpacing: 12,
-                  mainAxisSpacing: 12,
-                  mainAxisExtent: 196,
+              const SizedBox(height: 14),
+              if (data.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 30),
+                  child: Column(
+                    children: [
+                      Icon(Icons.group_off_rounded,
+                          size: 34, color: T.textMuted),
+                      SizedBox(height: 8),
+                      Text('Tidak ada karyawan yang cocok.',
+                          style: TextStyle(
+                              fontSize: 11.5, color: T.textSecondary)),
+                    ],
+                  ),
+                )
+              else
+                LayoutBuilder(
+                  builder: (context, c) {
+                    final kolom = c.maxWidth > 1080
+                        ? 3
+                        : (c.maxWidth > 720 ? 2 : 1);
+                    return GridView.count(
+                      crossAxisCount: kolom,
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      crossAxisSpacing: 12,
+                      mainAxisSpacing: 12,
+                      childAspectRatio: kolom == 1 ? 3.6 : 2.35,
+                      children: [
+                        for (final k in data)
+                          _KartuKaryawan(
+                            karyawan: k,
+                            onEdit: () => _bukaForm(context, k),
+                            onToggle: () {
+                              app.aturAktifKaryawan(k.id, !k.aktif);
+                              showToast(
+                                  context,
+                                  k.aktif
+                                      ? '${k.nama} dinonaktifkan.'
+                                      : '${k.nama} diaktifkan kembali.',
+                                  k.aktif
+                                      ? ToastKind.info
+                                      : ToastKind.success);
+                            },
+                            onHapus: () => _hapus(context, k),
+                          ),
+                      ],
+                    );
+                  },
                 ),
-                itemBuilder: (context, i) {
-                  final k = data[i];
-                  return _KartuKaryawan(
-                    karyawan: k,
-                    onDetail: () => _bukaDetail(context, k),
-                    onEdit: () => _bukaForm(context,
-                        karyawan: k, indeks: app.karyawanAdmin.indexOf(k)),
-                  );
-                },
-              );
-            },
+            ],
           ),
+        ),
       ],
     );
   }
 
-  // ── Modal detail ────────────────────────────────────────────
-  void _bukaDetail(BuildContext context, KaryawanAdmin k) {
-    showAdminDialog<void>(
+  Future<void> _hapus(BuildContext context, KaryawanAdmin k) async {
+    final ya = await showAdminDialog<bool>(
       context,
+      maxWidth: 420,
       child: Column(
-        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          const Text('Hapus Karyawan?',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8),
+          Text(
+            '${k.nama} (${k.email}) akan dihapus dari daftar karyawan. '
+            'Catatan presensi yang sudah ada tetap tersimpan.',
+            style: const TextStyle(
+                fontSize: 12, height: 1.5, color: T.textSecondary),
+          ),
+          const SizedBox(height: 16),
           Row(
             children: [
               Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(k.nama,
-                        style: const TextStyle(
-                            fontSize: 16, fontWeight: FontWeight.w800)),
-                    const SizedBox(height: 3),
-                    Text('${k.jabatan} · ${k.departemen}',
-                        style: const TextStyle(
-                            fontSize: 11.5, color: T.textMuted)),
-                  ],
+                child: AppButton(
+                  label: 'Batal',
+                  variant: AppButtonVariant.secondary,
+                  height: 42,
+                  onPressed: () => Navigator.of(context).pop(false),
                 ),
               ),
-              AppBadge(k.status,
-                  tone: k.status == 'Aktif'
-                      ? AppBadgeTone.green
-                      : AppBadgeTone.amber),
+              const SizedBox(width: 8),
+              Expanded(
+                child: AppButton(
+                  label: 'Hapus',
+                  variant: AppButtonVariant.danger,
+                  height: 42,
+                  onPressed: () => Navigator.of(context).pop(true),
+                ),
+              ),
             ],
-          ),
-          const SizedBox(height: 16),
-          Container(
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(T.rMd),
-              border: Border.all(color: T.border),
-            ),
-            child: Column(
-              children: [
-                InfoTile(label: 'Email', value: k.email),
-                const Divider(height: 1),
-                InfoTile(label: 'Jabatan', value: k.jabatan),
-                const Divider(height: 1),
-                InfoTile(label: 'Departemen', value: k.departemen),
-                const Divider(height: 1),
-                InfoTile(label: 'Status', value: k.status),
-                const Divider(height: 1),
-                const InfoTile(
-                    label: 'Jadwal kerja', value: 'Shift Pagi · 08:00 – 17:00'),
-              ],
-            ),
-          ),
-          const SizedBox(height: 18),
-          AppButton(
-            label: 'Tutup',
-            variant: AppButtonVariant.secondary,
-            onPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),
     );
+    if (ya != true || !context.mounted) return;
+    context.read<AppState>().hapusKaryawan(k.id);
+    showToast(context, '${k.nama} dihapus dari daftar.', ToastKind.info);
   }
 
-  // ── Modal tambah / edit ─────────────────────────────────────
-  void _bukaForm(BuildContext context,
-      {KaryawanAdmin? karyawan, int? indeks}) {
+  Future<void> _bukaForm(BuildContext context, KaryawanAdmin? awal) async {
+    final namaC = TextEditingController(text: awal?.nama ?? '');
+    final jabatanC = TextEditingController(text: awal?.jabatan ?? '');
+    final emailC = TextEditingController(text: awal?.email ?? '');
+    var departemen = awal?.departemen ?? _departemen.first;
+    var status = awal?.status ?? 'Aktif';
+    String? error;
     final formKey = GlobalKey<FormState>();
-    final namaC = TextEditingController(text: karyawan?.nama ?? '');
-    final jabatanC = TextEditingController(text: karyawan?.jabatan ?? '');
-    final deptC = TextEditingController(text: karyawan?.departemen ?? '');
-    final emailC = TextEditingController(text: karyawan?.email ?? '');
-    String status = karyawan?.status ?? 'Aktif';
-    final baru = karyawan == null;
 
-    showAdminDialog<void>(
+    final simpan = await showAdminDialog<bool>(
       context,
+      maxWidth: 480,
       child: StatefulBuilder(
-        builder: (context, setModal) => Form(
+        builder: (ctx, setLocal) => Form(
           key: formKey,
           child: Column(
-            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text(baru ? 'Tambah Karyawan' : 'Edit Data Karyawan',
+              Text(awal == null ? 'Tambah Karyawan' : 'Ubah Data Karyawan',
                   style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w800)),
+                      fontSize: 15, fontWeight: FontWeight.w800)),
               const SizedBox(height: 4),
-              const Text('Data karyawan baru akan tampil pada daftar HC.',
-                  style: TextStyle(fontSize: 11.5, color: T.textMuted)),
-              const SizedBox(height: 18),
+              const Text('Data ini dipakai untuk akun presensi karyawan.',
+                  style: TextStyle(fontSize: 11.5, color: T.textSecondary)),
+              const SizedBox(height: 16),
               TextFormField(
                 controller: namaC,
                 decoration: const InputDecoration(labelText: 'Nama lengkap'),
-                style: const TextStyle(fontSize: 13),
+                style: const TextStyle(fontSize: 13.5),
                 validator: (v) =>
-                    (v == null || v.trim().isEmpty) ? 'Nama wajib diisi.' : null,
+                    (v ?? '').trim().length < 3 ? 'Nama minimal 3 karakter.' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: jabatanC,
                 decoration: const InputDecoration(labelText: 'Jabatan'),
-                style: const TextStyle(fontSize: 13),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Jabatan wajib diisi.'
-                    : null,
-              ),
-              const SizedBox(height: 12),
-              TextFormField(
-                controller: deptC,
-                decoration: const InputDecoration(labelText: 'Departemen'),
-                style: const TextStyle(fontSize: 13),
-                validator: (v) => (v == null || v.trim().isEmpty)
-                    ? 'Departemen wajib diisi.'
-                    : null,
+                style: const TextStyle(fontSize: 13.5),
+                validator: (v) =>
+                    (v ?? '').trim().isEmpty ? 'Jabatan wajib diisi.' : null,
               ),
               const SizedBox(height: 12),
               TextFormField(
                 controller: emailC,
-                decoration: const InputDecoration(labelText: 'Email karyawan'),
-                style: const TextStyle(fontSize: 13),
+                decoration: const InputDecoration(labelText: 'Email'),
+                style: const TextStyle(fontSize: 13.5),
                 validator: (v) {
-                  final t = v?.trim() ?? '';
+                  final t = (v ?? '').trim();
                   if (t.isEmpty) return 'Email wajib diisi.';
-                  if (!RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$').hasMatch(t)) {
-                    return 'Format email tidak valid.';
+                  if (!RegExp(r'^[\w.+-]+@[\w-]+\.[\w.-]+$').hasMatch(t)) {
+                    return 'Format email belum benar.';
                   }
                   return null;
                 },
               ),
               const SizedBox(height: 12),
-              DropdownButtonFormField<String>(
-                initialValue: status,
-                decoration: const InputDecoration(labelText: 'Status kerja'),
-                style: const TextStyle(fontSize: 13, color: T.text),
-                items: const [
-                  DropdownMenuItem(value: 'Aktif', child: Text('Aktif')),
-                  DropdownMenuItem(value: 'WFH', child: Text('WFH')),
+              Row(
+                children: [
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: departemen,
+                      decoration:
+                          const InputDecoration(labelText: 'Departemen'),
+                      style: const TextStyle(fontSize: 13, color: T.text),
+                      items: [
+                        for (final d in _departemen)
+                          DropdownMenuItem(value: d, child: Text(d)),
+                      ],
+                      onChanged: (v) => setLocal(() => departemen = v ?? departemen),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: DropdownButtonFormField<String>(
+                      initialValue: status,
+                      decoration: const InputDecoration(labelText: 'Status'),
+                      style: const TextStyle(fontSize: 13, color: T.text),
+                      items: const [
+                        DropdownMenuItem(value: 'Aktif', child: Text('Aktif')),
+                        DropdownMenuItem(value: 'WFH', child: Text('WFH')),
+                        DropdownMenuItem(
+                            value: 'Nonaktif', child: Text('Nonaktif')),
+                      ],
+                      onChanged: (v) => setLocal(() => status = v ?? status),
+                    ),
+                  ),
                 ],
-                onChanged: (v) => setModal(() => status = v ?? 'Aktif'),
               ),
-              const SizedBox(height: 20),
+              if (error != null) ...[
+                const SizedBox(height: 12),
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: T.redBg,
+                    borderRadius: BorderRadius.circular(T.rSm),
+                    border: Border.all(color: T.redBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.error_outline_rounded,
+                          size: 16, color: T.red),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(error!,
+                            style: const TextStyle(
+                                fontSize: 11.5,
+                                fontWeight: FontWeight.w600,
+                                color: T.red)),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+              const SizedBox(height: 18),
               Row(
                 children: [
                   Expanded(
                     child: AppButton(
                       label: 'Batal',
                       variant: AppButtonVariant.secondary,
-                      onPressed: () => Navigator.of(context).pop(),
+                      height: 42,
+                      onPressed: () => Navigator.of(ctx).pop(false),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  const SizedBox(width: 8),
                   Expanded(
                     child: AppButton(
                       label: 'Simpan',
-                      icon: Icons.save_rounded,
+                      height: 42,
                       onPressed: () {
                         if (!formKey.currentState!.validate()) return;
+                        final app = context.read<AppState>();
                         final data = KaryawanAdmin(
+                          id: awal?.id ?? 'EMP-${DateTime.now().millisecondsSinceEpoch % 10000}',
                           nama: namaC.text.trim(),
                           jabatan: jabatanC.text.trim(),
-                          departemen: deptC.text.trim(),
+                          departemen: departemen,
                           status: status,
                           email: emailC.text.trim(),
+                          aktif: status != 'Nonaktif',
                         );
-                        final app = context.read<AppState>();
-                        if (baru) {
-                          app.tambahKaryawan(data);
-                        } else {
-                          app.perbaruiKaryawan(indeks ?? 0, data);
+                        final pesan = awal == null
+                            ? app.tambahKaryawan(data)
+                            : app.perbaruiKaryawan(
+                                app.karyawanAdmin.indexWhere(
+                                    (e) => e.id == awal.id),
+                                data,
+                              );
+                        if (pesan != null) {
+                          setLocal(() => error = pesan);
+                          return;
                         }
-                        Navigator.of(context).pop();
-                        showToast(context,
-                            baru ? 'Karyawan ditambahkan.' : 'Data karyawan diperbarui.',
-                            ToastKind.success);
+                        Navigator.of(ctx).pop(true);
                       },
                     ),
                   ),
@@ -294,6 +347,15 @@ class _AdminEmployeesScreenState extends State<AdminEmployeesScreen> {
         ),
       ),
     );
+
+    namaC.dispose();
+    jabatanC.dispose();
+    emailC.dispose();
+    if (simpan == true && context.mounted) {
+      showToast(context,
+          awal == null ? 'Karyawan ditambahkan.' : 'Data karyawan diperbarui.',
+          ToastKind.success);
+    }
   }
 }
 
@@ -301,19 +363,27 @@ class _AdminEmployeesScreenState extends State<AdminEmployeesScreen> {
 class _KartuKaryawan extends StatelessWidget {
   const _KartuKaryawan({
     required this.karyawan,
-    required this.onDetail,
     required this.onEdit,
+    required this.onToggle,
+    required this.onHapus,
   });
 
   final KaryawanAdmin karyawan;
-  final VoidCallback onDetail;
   final VoidCallback onEdit;
+  final VoidCallback onToggle;
+  final VoidCallback onHapus;
 
   @override
   Widget build(BuildContext context) {
     final k = karyawan;
+    final tone = switch (k.status) {
+      'Aktif' => AppBadgeTone.green,
+      'WFH' => AppBadgeTone.blue,
+      _ => AppBadgeTone.slate,
+    };
+
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: T.card,
         borderRadius: BorderRadius.circular(T.rLg),
@@ -324,105 +394,83 @@ class _KartuKaryawan extends StatelessWidget {
         children: [
           Row(
             children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: k.aktif ? T.blueBg : const Color(0xFFF1F4F8),
+                  borderRadius: BorderRadius.circular(T.rMd),
+                ),
+                alignment: Alignment.center,
+                child: Text(k.inisial,
+                    style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w800,
+                        color: k.aktif ? T.accent : T.textMuted)),
+              ),
+              const SizedBox(width: 10),
               Expanded(
-                child: AdminEmployeeCell(
-                  inisial: k.inisial,
-                  nama: k.nama,
-                  subjudul: k.jabatan,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(k.nama,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w700)),
+                    Text(k.jabatan,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 10.5, color: T.textMuted)),
+                  ],
                 ),
               ),
-              const SizedBox(width: 6),
-              AppBadge(k.status,
-                  tone: k.status == 'Aktif'
-                      ? AppBadgeTone.green
-                      : AppBadgeTone.amber),
+              AppBadge(k.status, tone: tone),
             ],
           ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            decoration: const BoxDecoration(
-              border: Border(
-                top: BorderSide(color: Color(0xFFEDF0F5)),
-                bottom: BorderSide(color: Color(0xFFEDF0F5)),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.mail_outline_rounded,
+                  size: 13, color: T.textMuted),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(k.email,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 10.5, color: T.textSecondary)),
               ),
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Departemen',
-                          style:
-                              TextStyle(fontSize: 9.5, color: T.textMuted)),
-                      const SizedBox(height: 3),
-                      Text(k.departemen,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('Email',
-                          style:
-                              TextStyle(fontSize: 9.5, color: T.textMuted)),
-                      const SizedBox(height: 3),
-                      Text(k.email,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                              fontSize: 11, fontWeight: FontWeight.w600)),
-                    ],
-                  ),
-                ),
-              ],
-            ),
+            ],
+          ),
+          Row(
+            children: [
+              const Icon(Icons.apartment_rounded, size: 13, color: T.textMuted),
+              const SizedBox(width: 5),
+              Expanded(
+                child: Text(k.departemen,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 10.5, color: T.textSecondary)),
+              ),
+            ],
           ),
           const Spacer(),
+          const Divider(height: 14),
           Row(
             children: [
               Expanded(
-                child: SizedBox(
-                  height: 34,
-                  child: OutlinedButton(
-                    onPressed: onDetail,
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: T.border),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(T.rSm)),
-                      foregroundColor: T.textSecondary,
-                      textStyle: const TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w700),
-                    ),
-                    child: const Text('Lihat Detail'),
-                  ),
-                ),
+                child: AdminTextAction(label: 'Ubah', onTap: onEdit),
               ),
-              const SizedBox(width: 8),
               Expanded(
-                child: SizedBox(
-                  height: 34,
-                  child: OutlinedButton.icon(
-                    onPressed: onEdit,
-                    icon: const Icon(Icons.edit_rounded, size: 13),
-                    label: const Text('Edit'),
-                    style: OutlinedButton.styleFrom(
-                      side: const BorderSide(color: T.blueBorder),
-                      backgroundColor: T.blueBg,
-                      foregroundColor: T.accent,
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(T.rSm)),
-                      textStyle: const TextStyle(
-                          fontSize: 11, fontWeight: FontWeight.w700),
-                    ),
-                  ),
-                ),
+                child: AdminTextAction(
+                    label: k.aktif ? 'Nonaktifkan' : 'Aktifkan',
+                    onTap: onToggle),
+              ),
+              Expanded(
+                child: AdminTextAction(label: 'Hapus', onTap: onHapus),
               ),
             ],
           ),

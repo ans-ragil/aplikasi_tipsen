@@ -100,3 +100,81 @@ Diverifikasi ulang dengan tangkapan layar otomatis pada 3 lebar layar — semua 
 | 7 | Persistensi lokal (data tahan refresh) + akun demo + polish aset/font/teks | 8, 14, 33–37 |
 
 Setiap batch diakhiri `flutter analyze` (harus 0 isu), `flutter build web`, dan verifikasi tangkapan layar otomatis.
+
+---
+
+## 4. Status akhir: SEMUA 38 POIN SELESAI + 9 TEMUAN BARU SAAT VERIFIKASI
+
+Seluruh poin 1–38 sudah diperbaiki. `flutter analyze` → **No issues found**. `flutter build web` → berhasil.
+Verifikasi dilakukan otomatis di Chrome (Playwright + Chrome headless) pada lebar **420 / 900 / 1440 px**,
+mencakup kedua POV (karyawan & HC), dengan **0 error runtime** di console.
+
+### 4.1 Rekap perbaikan per poin
+
+| Poin | Perbaikan | Bukti verifikasi |
+|------|-----------|------------------|
+| 1 | `FilePicker.pickFile` sungguhan (PDF/JPG/PNG, maks 1 MB) + kartu lampiran Ganti/Hapus + pratinjau gambar | Uji otomatis memilih `surat-dokter.png` → tampil "PNG · 140 B · berhasil diunggah" |
+| 2 | `catatClockOut` memperbarui entri `_riwayat` & mengembalikan objek baru | Clock Out 16:20 → Riwayat & Detail menampilkan jam pulang |
+| 3 | Durasi tampil di Beranda, Presensi, Riwayat, Detail Presensi, dan toast Clock Out | "Durasi kerja 9 jam 8 menit" |
+| 4 | Bottom sheet pemilih periode (12 bulan + "Semua periode") | Pilih "September 2026" → "0 catatan" + empty state khusus |
+| 5 | Halaman **Ubah Kata Sandi**, **Bantuan & Kebijakan Privasi**, **Tentang Aplikasi** | Ketiganya terbuka & berfungsi |
+| 6 | Satu daftar `pengajuan` dipakai karyawan & HC (alasan, lampiran, tanggal, status) | Pengajuan karyawan → badge HC 2→3, alasan & lampiran muncul di panel detail HC |
+| 7 | Menu sidebar **Profil & Pengaturan** untuk HC | Halaman penuh dengan identitas, keamanan, geofence, bantuan, keluar |
+| 8 | Persistensi `SharedPreferences` (`tipsen.data.v2`, `tipsen.sesi.v2`) + fallback bila kuota penuh | Reload → sesi & data presensi tetap ada |
+| 9 | CSV asli (Blob + BOM UTF-8) & PDF via dialog cetak browser | Terunduh `tipsen-riwayat-2026-10.csv`, `tipsen-laporan-bulan-ini.csv`; `window.print()` terpanggil |
+| 10 | Semua angka rekap dihitung dari data | "101 catatan", "923 jam 26 menit", "93%" |
+| 11 | Presensi karyawan dicerminkan ke `_presensiOrg` HC | Clock In karyawan → muncul di Monitoring HC |
+| 12 | Unduh CSV Riwayat nyata | Berkas benar-benar terunduh |
+| 13 | Dialog "Lupa kata sandi" + `resetSandi` | Berfungsi |
+| 14 | Validasi kredensial nyata + 2 akun demo + tombol "Isi otomatis" | Sandi salah → "Kata sandi salah. Periksa kembali…" |
+| 15–19 | Hitungan bulan ini, langkah presensi diturunkan dari data (tidak bisa Clock In ganda), badge keterlambatan akurat, ringkasan masuk/pulang/durasi, durasi "—" bila belum lengkap | Terverifikasi di Beranda & Presensi |
+| 20–22 | Validasi tipe/ukuran, ganti/hapus lampiran, pratinjau lampiran di Detail Pengajuan | Terverifikasi |
+| 23 | Riwayat dikelompokkan per bulan, ringkasan catatan + total jam kerja, empty state per filter | Terverifikasi |
+| 24 | Panel detail HC ikut berubah saat filter status diganti | Terverifikasi |
+| 25 | Dialog Tolak mewajibkan alasan (min. 5 karakter), alasan tampil di sisi karyawan | Terverifikasi |
+| 26 | Tambah/ubah/hapus/nonaktifkan karyawan, validasi email unik & format | Terverifikasi |
+| 27 | Peta geofence (CustomPainter), slider radius 20–200 m, Simpan/Reset | Terverifikasi |
+| 28 | Konfirmasi sebelum keluar dari Portal HC | Terverifikasi |
+| 29 | Pengaturan HC menyatu di halaman Profil & Pengaturan | Terverifikasi |
+| 30 | Topbar admin menyembunyikan nama hanya di layar sangat sempit, menu tetap lengkap lewat drawer | Terverifikasi pada 430 px |
+| 31 | Indikator proses saat kamera menyala & saat presensi dikirim | Terverifikasi |
+| 32 | Petunjuk izin kamera + tombol "Coba lagi" / "Lanjut tanpa kamera" | Terverifikasi |
+| 33 | Ikon PWA, favicon, dan splash TIPSEN dibuat khusus (bukan logo Flutter) | Terverifikasi |
+| 34 | Font dibundel lewat `google_fonts` dengan fallback sistem | — |
+| 35 | Teks "simulasi" diselaraskan dengan fitur yang sudah nyata | — |
+| 36 | Navigasi tab memakai `IndexedStack` (state tiap tab terjaga) | Terverifikasi |
+| 37 | Ukuran teks keterangan dinaikkan ke 11–12 px | — |
+| 38 | Empty state khusus per filter di Riwayat & Monitoring | Terverifikasi |
+
+### 4.2 Temuan baru saat verifikasi (semuanya sudah diperbaiki)
+
+| # | Temuan | Akar masalah | Perbaikan |
+|---|--------|--------------|-----------|
+| 39 | Toast/snackbar muncul di dasar jendela browser, **menutupi navigasi bawah** dan menelan klik pada nav | `ScaffoldMessenger` di akar aplikasi merender snackbar pada **setiap** `Scaffold` terdaftar, termasuk `Scaffold` terluar `ShellScreen` yang selebar jendela | Frame diberi `ScaffoldMessenger` + `Scaffold` sendiri; toast kini tampil **di dalam frame**, tepat di atas nav |
+| 40 | Tooltip nav ("Presensi") muncul saat kursor berhenti dan menutupi label | Tooltip bawaan `NavigationDestination` | `tooltip: ''` |
+| 41 | Tabel Monitoring & Laporan **kolomnya kolaps/tumpang tindih**, tabel Laporan malah tidak tampil | `AdminTable` berada di `SingleChildScrollView` horizontal → `Column` memberi lebar tak-hingga ke baris → `Expanded` kolom tidak berfungsi (di mode release tidak melempar error, hanya layout rusak) | `LayoutBuilder` + `SizedBox(width: max(kontainer, lebarMinimal))` |
+| 42 | Tombol dengan `expand: false` tetap **selebar induknya** dan mendorong elemen lain ke baris baru | `AppButton` memakai `minimumSize: Size.fromHeight(h)` yang berarti lebar minimum = tak hingga | `minimumSize: Size(0, height)` |
+| 43 | Chip ringkasan Monitoring memanjang selebar halaman | `Row` di dalam chip memakai `mainAxisSize.max` | `MainAxisSize.min` |
+| 44 | Toolbar pencarian Monitoring & Manajemen Karyawan ter-center, tidak rata kiri | `Column` default `crossAxisAlignment: center` | `CrossAxisAlignment.stretch` |
+| 45 | Durasi "—" saat Clock In & Clock Out pada menit yang sama | `selisihMenit` menganggap 0 sebagai tidak valid | 0 valid → label "< 1 menit"; getter `durasi` mengembalikan "—" hanya bila presensi belum lengkap |
+| 46 | "Terlambat 485 menit dari jadwal 08:00" | Angka mentah | `durasiLabel` → "Terlambat 8 jam 5 menit dari jadwal 08:00" |
+| 47 | Tombol kembali pada halaman turunan tidak punya label aksesibilitas | `IconButton` tanpa `tooltip` | `tooltip: 'Kembali'` di 6 halaman |
+
+### 4.3 Cara menjalankan
+
+```bash
+cd aplikasi_tipsen
+flutter run -d chrome          # mode pengembangan
+flutter build web              # build rilis → build/web
+python -m http.server 8080 -d build/web   # pratinjau lokal
+```
+
+Akun demo:
+
+| Peran | Email | Kata sandi |
+|-------|-------|------------|
+| Karyawan | `anisa@tipsen.id` | `tipsen123` |
+| HC Admin | `bambang@tipsen.id` | `admin123` |
+
+> Catatan: kamera & lokasi memerlukan **tab Chrome sungguhan** (bukan iframe pratinjau) agar izin perangkat bisa diberikan.
+

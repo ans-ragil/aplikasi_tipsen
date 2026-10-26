@@ -1,10 +1,15 @@
+import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../core/berkas/unduh.dart';
 import '../core/theme.dart';
 import '../core/widgets.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
+
+const _maksUkuranLampiran = 1024 * 1024; // 1 MB
+const _ekstensiDiizinkan = ['pdf', 'jpg', 'jpeg', 'png'];
 
 /// Form pengajuan izin/cuti (halaman turunan dari Beranda).
 class PengajuanScreen extends StatefulWidget {
@@ -21,21 +26,14 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
   String _jenis = daftarJenisPengajuan.first;
   DateTime? _mulai;
   DateTime? _selesai;
-  String? _lampiran;
+  Lampiran? _lampiran;
   bool _berhasil = false;
+  bool _mengunggah = false;
 
   @override
   void dispose() {
     _alasanC.dispose();
     super.dispose();
-  }
-
-  String _fmt(DateTime d) {
-    const bulan = [
-      '', 'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
-      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
-    ];
-    return '${d.day} ${bulan[d.month]} ${d.year}';
   }
 
   Future<void> _pilihTanggal({required bool mulai}) async {
@@ -51,6 +49,7 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
     );
     if (hasil == null) return;
     setState(() {
+      _berhasil = false;
       if (mulai) {
         _mulai = hasil;
         if (_selesai != null && _selesai!.isBefore(hasil)) _selesai = hasil;
@@ -60,7 +59,72 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
     });
   }
 
-  void _kirim() {
+  /// Pilih berkas dari perangkat (Chrome membuka dialog file).
+  Future<void> _pilihLampiran() async {
+    setState(() => _mengunggah = true);
+    try {
+      final f = await FilePicker.pickFile(
+        dialogTitle: 'Pilih lampiran pengajuan',
+        type: FileType.custom,
+        allowedExtensions: _ekstensiDiizinkan,
+      );
+      if (!mounted) return;
+      if (f == null) {
+        setState(() => _mengunggah = false);
+        return;
+      }
+      final ext = (f.extension ?? '').toLowerCase();
+
+      if (!_ekstensiDiizinkan.contains(ext)) {
+        setState(() => _mengunggah = false);
+        showToast(context, 'Format .$ext belum didukung. Gunakan PDF, JPG, atau PNG.',
+            ToastKind.error);
+        return;
+      }
+      final ukuran = f.lengthSync() ?? await f.length() ?? 0;
+      if (!mounted) return;
+      if (ukuran > _maksUkuranLampiran) {
+        setState(() => _mengunggah = false);
+        showToast(
+            context,
+            'Ukuran berkas ${ukuranFile(ukuran)} melebihi batas 1 MB.',
+            ToastKind.error);
+        return;
+      }
+      final bytes = await f.readAsBytes();
+      if (!mounted) return;
+      if (bytes.isEmpty) {
+        setState(() => _mengunggah = false);
+        showToast(context, 'Berkas kosong. Silakan pilih berkas lain.',
+            ToastKind.error);
+        return;
+      }
+
+      setState(() {
+        _lampiran = Lampiran(
+          nama: f.name,
+          ukuran: bytes.length,
+          tipe: switch (ext) {
+            'pdf' => 'application/pdf',
+            'png' => 'image/png',
+            _ => 'image/jpeg',
+          },
+          bytes: bytes,
+        );
+        _mengunggah = false;
+        _berhasil = false;
+      });
+      showToast(context, 'Lampiran "${f.name}" berhasil diunggah.',
+          ToastKind.success);
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _mengunggah = false);
+      showToast(context, 'Gagal memilih berkas: $e', ToastKind.error);
+    }
+  }
+
+  Future<void> _kirim() async {
+    setState(() => _berhasil = false);
     final valid = _formKey.currentState!.validate();
     if (_mulai == null) {
       showToast(context, 'Tanggal mulai wajib dipilih.', ToastKind.error);
@@ -81,18 +145,18 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
           mulai: _mulai!,
           selesai: _selesai!,
           alasan: _alasanC.text.trim(),
-          lampiranNama: _lampiran,
+          lampiran: _lampiran,
         );
 
-    setState(() => _berhasil = true);
-    showToast(context, 'Pengajuan berhasil dikirim ke HC.', ToastKind.success);
-
-    _alasanC.clear();
     setState(() {
+      _berhasil = true;
       _mulai = null;
       _selesai = null;
       _lampiran = null;
+      _jenis = daftarJenisPengajuan.first;
     });
+    _alasanC.clear();
+    showToast(context, 'Pengajuan berhasil dikirim ke HC.', ToastKind.success);
   }
 
   @override
@@ -102,6 +166,7 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
       appBar: AppBar(
         title: const Text('Pengajuan Izin & Cuti'),
         leading: IconButton(
+          tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),
@@ -113,9 +178,10 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
             padding: const EdgeInsets.fromLTRB(T.margin, 4, T.margin, 28),
             children: [
               const Text(
-                'Ajukan cuti atau izin tanpa formulir manual. '
-                'Pengajuan akan diteruskan ke HC untuk disetujui.',
-                style: TextStyle(fontSize: 12.5, color: T.textSecondary, height: 1.5),
+                'Ajukan cuti atau izin tanpa formulir manual. Pengajuan akan '
+                'diteruskan ke HC untuk disetujui.',
+                style: TextStyle(
+                    fontSize: 12.5, color: T.textSecondary, height: 1.5),
               ),
               const SizedBox(height: 16),
 
@@ -143,8 +209,9 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
                                     color: T.green)),
                             SizedBox(height: 3),
                             Text(
-                              'Status pengajuan dapat dipantau pada menu Riwayat.',
-                              style: TextStyle(fontSize: 11.5, color: T.green),
+                              'Pantau status persetujuannya pada menu Riwayat.',
+                              style:
+                                  TextStyle(fontSize: 11.5, color: T.green),
                             ),
                           ],
                         ),
@@ -167,28 +234,29 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // Jenis pengajuan
                       DropdownButtonFormField<String>(
                         initialValue: _jenis,
                         decoration: const InputDecoration(
-                          labelText: 'Jenis Pengajuan',
-                        ),
+                            labelText: 'Jenis Pengajuan'),
                         style: const TextStyle(fontSize: 14, color: T.text),
                         items: [
                           for (final j in daftarJenisPengajuan)
                             DropdownMenuItem(value: j, child: Text(j)),
                         ],
-                        onChanged: (v) => setState(() => _jenis = v ?? _jenis),
+                        onChanged: (v) => setState(() {
+                          _jenis = v ?? _jenis;
+                          _berhasil = false;
+                        }),
                       ),
                       const SizedBox(height: 14),
 
-                      // Tanggal
                       Row(
                         children: [
                           Expanded(
                             child: _TombolTanggal(
                               label: 'Tanggal Mulai',
-                              nilai: _mulai == null ? 'Pilih tanggal' : _fmt(_mulai!),
+                              nilai:
+                                  _mulai == null ? 'Pilih tanggal' : tanggalSingkat(_mulai!),
                               terisi: _mulai != null,
                               onTap: () => _pilihTanggal(mulai: true),
                             ),
@@ -197,20 +265,33 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
                           Expanded(
                             child: _TombolTanggal(
                               label: 'Tanggal Selesai',
-                              nilai:
-                                  _selesai == null ? 'Pilih tanggal' : _fmt(_selesai!),
+                              nilai: _selesai == null
+                                  ? 'Pilih tanggal'
+                                  : tanggalSingkat(_selesai!),
                               terisi: _selesai != null,
                               onTap: () => _pilihTanggal(mulai: false),
                             ),
                           ),
                         ],
                       ),
+                      if (_mulai != null && _selesai != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Total ${_selesai!.difference(_mulai!).inDays + 1} hari pengajuan',
+                          style: const TextStyle(
+                              fontSize: 11,
+                              fontWeight: FontWeight.w600,
+                              color: T.accent),
+                        ),
+                      ],
                       const SizedBox(height: 14),
 
-                      // Alasan
                       TextFormField(
                         controller: _alasanC,
                         maxLines: 4,
+                        onChanged: (_) {
+                          if (_berhasil) setState(() => _berhasil = false);
+                        },
                         decoration: const InputDecoration(
                           labelText: 'Alasan Pengajuan',
                           hintText:
@@ -229,53 +310,67 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Lampiran (simulasi)
-                      GestureDetector(
-                        onTap: () {
-                          setState(() => _lampiran = 'lampiran-pengajuan.pdf');
-                          showToast(context,
-                              'Lampiran dipilih (simulasi): lampiran-pengajuan.pdf',
-                              ToastKind.info);
-                        },
-                        child: Container(
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: T.blueBg,
-                            borderRadius: BorderRadius.circular(T.rMd),
-                            border: Border.all(color: T.blueBorder),
-                          ),
-                          child: Row(
-                            children: [
-                              const Icon(Icons.attach_file_rounded,
-                                  size: 18, color: T.accent),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(
-                                  _lampiran ?? 'Lampiran pendukung (opsional)',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: _lampiran == null
-                                        ? FontWeight.w500
-                                        : FontWeight.w700,
-                                    color: T.accent,
+                      // ── Lampiran ─────────────────────────
+                      if (_lampiran == null)
+                        InkWell(
+                          onTap: _mengunggah ? null : _pilihLampiran,
+                          borderRadius: BorderRadius.circular(T.rMd),
+                          child: Container(
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: T.blueBg,
+                              borderRadius: BorderRadius.circular(T.rMd),
+                              border: Border.all(
+                                  color: T.blueBorder, style: BorderStyle.solid),
+                            ),
+                            child: Row(
+                              children: [
+                                if (_mengunggah)
+                                  const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                        strokeWidth: 2, color: T.accent),
+                                  )
+                                else
+                                  const Icon(Icons.upload_file_rounded,
+                                      size: 20, color: T.accent),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        _mengunggah
+                                            ? 'Membuka berkas…'
+                                            : 'Pilih berkas lampiran',
+                                        style: const TextStyle(
+                                            fontSize: 12.5,
+                                            fontWeight: FontWeight.w700,
+                                            color: T.accent),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      const Text(
+                                        'PDF, JPG, atau PNG · maksimal 1 MB',
+                                        style: TextStyle(
+                                            fontSize: 10.5, color: T.accent),
+                                      ),
+                                    ],
                                   ),
                                 ),
-                              ),
-                              if (_lampiran != null)
-                                GestureDetector(
-                                  onTap: () => setState(() => _lampiran = null),
-                                  child: const Icon(Icons.close_rounded,
-                                      size: 16, color: T.accent),
-                                ),
-                            ],
+                                const Icon(Icons.arrow_forward_rounded,
+                                    size: 16, color: T.accent),
+                              ],
+                            ),
                           ),
+                        )
+                      else
+                        _KartuLampiran(
+                          lampiran: _lampiran!,
+                          onGanti: _mengunggah ? null : _pilihLampiran,
+                          onHapus: () => setState(() => _lampiran = null),
                         ),
-                      ),
-                      const SizedBox(height: 6),
-                      const Text(
-                        'Format PDF/JPG/PNG maksimal 1 MB (simulasi pada fase ini).',
-                        style: TextStyle(fontSize: 10.5, color: T.textMuted),
-                      ),
                       const SizedBox(height: 18),
                       AppButton(
                         label: 'Kirim Pengajuan',
@@ -289,6 +384,80 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+class _KartuLampiran extends StatelessWidget {
+  const _KartuLampiran({
+    required this.lampiran,
+    required this.onGanti,
+    required this.onHapus,
+  });
+
+  final Lampiran lampiran;
+  final VoidCallback? onGanti;
+  final VoidCallback onHapus;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: T.greenBg,
+        borderRadius: BorderRadius.circular(T.rMd),
+        border: Border.all(color: T.greenBorder),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: T.card,
+              borderRadius: BorderRadius.circular(T.rSm),
+              border: Border.all(color: T.greenBorder),
+            ),
+            alignment: Alignment.center,
+            child: Text(lampiran.ekstensi,
+                style: const TextStyle(
+                    fontSize: 9,
+                    fontWeight: FontWeight.w800,
+                    color: T.green)),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(lampiran.nama,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 2),
+                Text('${lampiran.ukuranLabel} · berhasil diunggah',
+                    style: const TextStyle(fontSize: 10.5, color: T.green)),
+              ],
+            ),
+          ),
+          IconButton(
+            tooltip: 'Ganti berkas',
+            onPressed: onGanti,
+            icon: const Icon(Icons.swap_horiz_rounded, size: 18),
+            color: T.accent,
+            visualDensity: VisualDensity.compact,
+          ),
+          IconButton(
+            tooltip: 'Hapus lampiran',
+            onPressed: onHapus,
+            icon: const Icon(Icons.delete_outline_rounded, size: 18),
+            color: T.red,
+            visualDensity: VisualDensity.compact,
+          ),
+        ],
       ),
     );
   }
@@ -322,7 +491,8 @@ class _TombolTanggal extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(label,
-                style: const TextStyle(fontSize: 10.5, color: T.textSecondary)),
+                style:
+                    const TextStyle(fontSize: 10.5, color: T.textSecondary)),
             const SizedBox(height: 4),
             Row(
               children: [
@@ -345,4 +515,117 @@ class _TombolTanggal extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Pratinjau lampiran — dipakai di Detail Pengajuan (karyawan) & portal HC.
+Future<void> tampilkanLampiran(BuildContext context, Lampiran lampiran) async {
+  await showDialog<void>(
+    context: context,
+    builder: (ctx) => Dialog(
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(T.rLg)),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 520, maxHeight: 620),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(lampiran.nama,
+                            maxLines: 2,
+                            style: const TextStyle(
+                                fontSize: 13.5, fontWeight: FontWeight.w800)),
+                        const SizedBox(height: 2),
+                        Text('${lampiran.ekstensi} · ${lampiran.ukuranLabel}',
+                            style: const TextStyle(
+                                fontSize: 11, color: T.textSecondary)),
+                      ],
+                    ),
+                  ),
+                  IconButton(
+                    onPressed: () => Navigator.of(ctx).pop(),
+                    icon: const Icon(Icons.close_rounded, size: 20),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+              Flexible(
+                child: lampiran.bytes == null
+                    ? Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(18),
+                        decoration: BoxDecoration(
+                          color: T.canvas,
+                          borderRadius: BorderRadius.circular(T.rMd),
+                        ),
+                        child: const Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.insert_drive_file_outlined,
+                                size: 36, color: T.textMuted),
+                            SizedBox(height: 8),
+                            Text(
+                              'Berkas contoh dari data awal tidak menyimpan isi '
+                              'file. Unggah lampiran baru untuk mencoba pratinjau.',
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontSize: 11.5,
+                                  color: T.textSecondary,
+                                  height: 1.5),
+                            ),
+                          ],
+                        ),
+                      )
+                    : lampiran.gambar
+                        ? ClipRRect(
+                            borderRadius: BorderRadius.circular(T.rMd),
+                            child: Image.memory(lampiran.bytes!,
+                                fit: BoxFit.contain),
+                          )
+                        : Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(18),
+                            decoration: BoxDecoration(
+                              color: T.canvas,
+                              borderRadius: BorderRadius.circular(T.rMd),
+                            ),
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.picture_as_pdf_rounded,
+                                    size: 40, color: T.red),
+                                const SizedBox(height: 10),
+                                const Text(
+                                  'Dokumen PDF siap diunduh untuk diperiksa.',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                      fontSize: 12, color: T.textSecondary),
+                                ),
+                                const SizedBox(height: 12),
+                                AppButton(
+                                  label: 'Unduh Berkas',
+                                  icon: Icons.download_rounded,
+                                  height: 40,
+                                  expand: false,
+                                  onPressed: () => unduhBerkas(
+                                      lampiran.nama,
+                                      lampiran.bytes!,
+                                      lampiran.tipe),
+                                ),
+                              ],
+                            ),
+                          ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    ),
+  );
 }

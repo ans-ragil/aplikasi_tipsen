@@ -17,22 +17,37 @@ D:/KULIAH/smt7/tipsen/dev/flutter/bin/flutter.bat run -d chrome
 Alternatif tanpa Flutter: build web sudah tersedia di folder `build/web`,
 bisa dibuka dengan server statis apa pun.
 
-## Status: ✅ FASE 1–9 + 11 SELESAI + PERBAIKAN UI — siap demo
+## Status: ✅ FASE 1–9 + 11 SELESAI + AUDIT & PERBAIKAN MENYELURUH — siap demo
 
 | # | Fase | Ruang lingkup | Status |
 |---|------|---------------|--------|
-| 1 | Fondasi | Theme navy #263858, komponen inti, model data, state simulasi | ✅ Selesai |
-| 2 | Login | Brand mark, validasi inline, toggle sandi, toast | ✅ Selesai |
+| 1 | Fondasi | Theme navy #263858, komponen inti, model data, state | ✅ Selesai |
+| 2 | Login | Brand mark, validasi kredensial nyata, toggle sandi, lupa sandi | ✅ Selesai |
 | 3 | Shell navigasi | Bottom nav 4 tab + frame terpusat di Chrome | ✅ Selesai |
-| 4 | Beranda | Hero jam real-time, stat Hadir/Izin, menu cepat | ✅ Selesai |
-| 5 | Presensi | Selfie + GPS simulasi, state machine Clock In/Out | ✅ Selesai |
-| 6 | Riwayat | Filter Semua/Hadir/Izin, daftar, Detail Presensi | ✅ Selesai |
-| 7 | Pengajuan Izin | Form + validasi + lampiran simulasi, Detail Pengajuan | ✅ Selesai |
-| 8 | Profil | Info akun, pengaturan, logout | ✅ Selesai |
+| 4 | Beranda | Hero jam real-time, statistik bulan berjalan, menu cepat | ✅ Selesai |
+| 5 | Presensi | Kamera asli + GPS/geofence asli, Clock In/Out + durasi | ✅ Selesai |
+| 6 | Riwayat | Filter periode bulan + status, pengelompokan, unduh CSV | ✅ Selesai |
+| 7 | Pengajuan Izin | Form + unggah berkas asli (PDF/JPG/PNG) + detail | ✅ Selesai |
+| 8 | Profil | Info akun, Ubah Kata Sandi, Bantuan, Tentang, logout | ✅ Selesai |
 | 9 | Verifikasi | `flutter analyze` bersih + `flutter build web` sukses | ✅ Selesai |
-| 11 | Web Admin | 6 halaman HC Portal + sidebar + topbar + modal | ✅ Selesai |
+| 11 | Web Admin | 7 halaman HC Portal (termasuk Profil & Pengaturan) | ✅ Selesai |
+| 13 | Audit menyeluruh | 38 catatan + 9 temuan baru → semua diperbaiki & diuji E2E | ✅ Selesai |
 | 10 | Firebase | Auth email/password + Firestore — **butuh kredensial project Firebase Anda** | ⏸ Menunggu user |
 | 12 | Deploy | Firebase Hosting + repo GitHub remote — **butuh akun/CLI login** | ⏸ Menunggu user |
+
+> Rincian lengkap 47 perbaikan (bukti + akar masalah) ada di **`CATATAN-PERBAIKAN.md`**.
+
+## Akun demo
+
+| Peran | Email | Kata sandi |
+|-------|-------|------------|
+| Karyawan | `anisa@tipsen.id` | `tipsen123` |
+| HC Admin | `bambang@tipsen.id` | `admin123` |
+
+Halaman Login juga menyediakan tombol **"Isi otomatis"** untuk kedua akun.
+Data (presensi, pengajuan, keputusan HC, daftar karyawan, radius geofence)
+disimpan di `localStorage` (`SharedPreferences`) sehingga **tahan refresh**.
+
 
 ## Web Admin (HC Portal) — fase 11
 
@@ -63,57 +78,107 @@ Akses: halaman Login → tombol **"Masuk sebagai HC Admin (Demo)"**.
 
 ## Yang sudah bisa dicoba sekarang
 
-1. **Login** — email apa pun berformat valid (contoh `anisa@tipsen.id`) + sandi bebas.
-2. **Beranda** — jam berjalan real-time; tombol hero mengikuti status presensi.
-3. **Presensi** — minta izin lokasi → ambil selfie (klik area gelap) → Kirim Presensi Masuk;
-   coba juga "Simulasi: pindah ke luar radius" untuk melihat pencatatan WFH.
-4. **Riwayat** — filter Semua / Hadir / Izin; klik item untuk detail.
-5. **Pengajuan** (menu cepat di Beranda) — isi form, validasi alasan min. 10 karakter.
-6. **Profil** — logout mengembalikan ke halaman Login.
+1. **Login** — gunakan akun demo di atas, atau klik "Isi otomatis". Sandi salah
+   akan ditolak dengan pesan jelas; tersedia alur "Lupa kata sandi?".
+2. **Beranda** — jam berjalan real-time, ringkasan bulan berjalan (hadir,
+   terlambat, izin, total jam kerja), menu cepat ke semua fitur.
+3. **Presensi** — minta izin lokasi → kamera asli → **Ambil Foto** → Kirim
+   Presensi Masuk; setelah itu muncul jam masuk, durasi berjalan, dan tombol
+   **Clock Out**. Di luar radius kantor otomatis dicatat sebagai WFH.
+4. **Riwayat** — pilih periode bulan (bottom sheet), filter Semua/Hadir/Izin,
+   klik item untuk Detail Presensi, dan **Unduh Riwayat (CSV)**.
+5. **Pengajuan Izin** — pilih tanggal, tulis alasan, **unggah lampiran asli**
+   (PDF/JPG/PNG maks 1 MB, bisa Ganti/Hapus), lalu Kirim.
+6. **Profil** — Ubah Kata Sandi, Bantuan & Kebijakan Privasi, Tentang Aplikasi,
+   dan Keluar Akun.
+7. **Portal HC** — Dashboard, Monitoring, Live Tracking & Geofence,
+   Persetujuan (Setujui / Tolak + alasan), Manajemen Karyawan,
+   Laporan & Ekspor (CSV + Cetak/PDF), Profil & Pengaturan.
+
+## Verifikasi otomatis (26 Okt 2026)
+
+Pengujian dijalankan dengan Chrome headless + Playwright pada lebar
+**420 / 900 / 1440 px**, mencakup kedua POV:
+
+| Skenario | Hasil |
+|---|---|
+| Login sandi salah → pesan error | ✅ |
+| Clock In + selfie + geofence → durasi & status | ✅ |
+| Clock Out → jam pulang & durasi kerja | ✅ |
+| Riwayat: pilih periode, empty state, unduh CSV | ✅ (`tipsen-riwayat-2026-10.csv`, BOM UTF-8) |
+| Pengajuan: unggah `surat-dokter.png` sungguhan | ✅ |
+| Karyawan kirim → HC melihat alasan & lampiran | ✅ |
+| HC tolak + alasan → karyawan melihat "Catatan dari HC" | ✅ |
+| Presensi karyawan muncul di Monitoring HC | ✅ |
+| Laporan HC: ekspor CSV + Cetak/PDF (`window.print`) | ✅ |
+| Reload halaman → sesi & data tetap | ✅ |
+| Logout (karyawan & HC) dengan konfirmasi | ✅ |
+| Error runtime di console browser | **0** |
+
 
 ## Berkas kode utama
 
 ```
 lib/
-├── main.dart                      # gerbang sesi (Login ↔ Shell)
-├── core/theme.dart                # token warna/teks/radius + tema Material
-├── core/widgets.dart              # AppButton, AppBadge, StatCard, toast, dll.
-├── models/models.dart             # Karyawan, Presensi, PengajuanIzin, Geofence
-├── state/app_state.dart           # ChangeNotifier: sesi, presensi, data simulasi
+├── main.dart                      # gerbang sesi (Login ↔ Shell / Portal HC)
+├── core/
+│   ├── theme.dart                 # token warna/teks/radius + tema Material
+│   ├── widgets.dart               # AppButton, AppBadge, StatCard, toast, dll.
+│   ├── csv.dart                   # keCsv + unduhCsv (BOM UTF-8)
+│   ├── selfie_capture.dart        # kamera asli (camera + camera_web)
+│   └── berkas/
+│       ├── unduh.dart             # ekspor kondisional (stub / web)
+│       ├── unduh_stub.dart
+│       └── unduh_web.dart         # Blob download + window.print()
+├── models/models.dart             # Karyawan, Presensi, PengajuanIzin, Lampiran, Geofence
+├── state/app_state.dart           # ChangeNotifier + persistensi SharedPreferences
 └── screens/
     ├── login_screen.dart          ├── beranda_screen.dart
     ├── shell_screen.dart          ├── presensi_screen.dart
     ├── riwayat_screen.dart        ├── detail_presensi_screen.dart
     ├── pengajuan_screen.dart      ├── detail_pengajuan_screen.dart
-    ├── profil_screen.dart
+    ├── profil_screen.dart         ├── ubah_sandi_screen.dart
+    ├── bantuan_screen.dart        # Bantuan & Kebijakan Privasi + Tentang
     └── admin/
-        ├── admin_shell.dart       # topbar + sidebar 6 menu + drawer responsif
+        ├── admin_shell.dart       # topbar + sidebar 7 menu + drawer responsif
         ├── admin_widgets.dart     # AdminPanel, AdminTable, dialog, toolbar
         ├── admin_dashboard_screen.dart
         ├── admin_monitoring_screen.dart
         ├── admin_tracking_screen.dart
         ├── admin_approval_screen.dart
         ├── admin_employees_screen.dart
-        └── admin_reports_screen.dart
+        ├── admin_reports_screen.dart
+        └── admin_profil_screen.dart
 ```
 
 ## Penyempurnaan di luar prototipe (nilai plus)
 
 - Font Inter (google_fonts) + skala tipografi style guide
 - Semua status memakai badge berteks (bukan warna saja) — aturan aksesibilitas modul 4
-- Data simulasi realistis (6 catatan presensi + 2 pengajuan) & empty state
+- **Kamera asli** (bukan simulasi) dengan fallback bila izin ditolak
+- **GPS + geofence asli**: jarak ke kantor dihitung, di luar radius otomatis WFH
+- **Data tahan refresh** (SharedPreferences) + fallback bila kuota penyimpanan penuh
+- **Ekspor CSV nyata** (BOM UTF-8, bisa dibuka Excel) & **PDF via dialog cetak browser**
+- **Unggah lampiran nyata** dengan validasi tipe & ukuran, pratinjau gambar
+- **Satu sumber data** untuk karyawan & HC: pengajuan, keputusan, presensi selalu sinkron
+- Analitik HC dihitung dari data (persen kehadiran, rata-rata jam masuk, grafik mingguan)
 - Detail presensi menghitung durasi kerja; verifikasi selfie ditampilkan
 - Konfirmasi dialog sebelum logout
-- Responsif: frame ponsel terpusat di Chrome, full-width di layar sempit
-- 2 widget test dasar (halaman login & validasi)
+- Responsif: frame ponsel terpusat di Chrome, full-width di layar sempit (< 800 px)
+- Ikon PWA, favicon, dan splash screen bermerek TIPSEN
+- Label aksesibilitas pada tombol ikon (mis. "Kembali")
+- Widget test dasar (halaman login & validasi)
 
 ## Catatan keputusan desain
 
 1. Warna aksi utama = navy `#263858` (bukan #2563EB prototipe).
 2. Bottom nav 4 item mengikuti Figma (Beranda, Presensi, Riwayat, Profil).
 3. Pengajuan Izin = halaman turunan dari Beranda (punya tombol kembali), bukan item menu.
-4. Selfie & GPS masih simulasi; kamera/GPS asli menyusul bersama fase Firebase.
-5. Data disimpan di memori (hilang saat refresh) sampai fase Firebase.
+4. Kamera & GPS memakai API perangkat sungguhan; data presensi tetap disimpan lokal
+   di browser sampai fase Firebase dijalankan.
+5. Penyimpanan lokal dipilih agar aplikasi bisa didemokan tanpa konfigurasi akun;
+   struktur data sudah disiapkan (JSON per model) sehingga tinggal dipindah ke Firestore.
+
 
 ## Langkah yang butuh tindakan Anda (fase 10 & 12)
 

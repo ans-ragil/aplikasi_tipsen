@@ -5,9 +5,10 @@ import '../../core/theme.dart';
 import '../../core/widgets.dart';
 import '../../models/models.dart';
 import '../../state/app_state.dart';
+import '../pengajuan_screen.dart';
 import 'admin_widgets.dart';
 
-/// Persetujuan Cuti & Izin: daftar pengajuan + panel detail + keputusan.
+/// Persetujuan Cuti & Izin: daftar pengajuan karyawan + panel detail.
 class AdminApprovalScreen extends StatefulWidget {
   const AdminApprovalScreen({super.key});
 
@@ -25,18 +26,14 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
 
-    final data = app.pengajuanMasuk.where((p) {
-      if (_filter == 'Semua') return true;
-      return p.status.label == _filter;
-    }).toList();
+    final data = app.pengajuanMasuk
+        .where((p) => _filter == 'Semua' || p.status.label == _filter)
+        .toList();
 
-    // Pilih otomatis item pertama bila belum ada pilihan valid.
     PengajuanIzin? terpilih;
     if (data.isNotEmpty) {
-      terpilih = data.firstWhere(
-        (p) => p.id == _dipilih,
-        orElse: () => data.first,
-      );
+      terpilih = data.firstWhere((p) => p.id == _dipilih,
+          orElse: () => data.first);
     }
 
     return ListView(
@@ -53,7 +50,6 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
         ),
         const SizedBox(height: 18),
 
-        // ── Filter ─────────────────────────────────────────
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -62,7 +58,10 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
               ChoiceChip(
                 label: Text(f, style: const TextStyle(fontSize: 11.5)),
                 selected: _filter == f,
-                onSelected: (_) => setState(() => _filter = f),
+                onSelected: (_) => setState(() {
+                  _filter = f;
+                  _dipilih = null;
+                }),
                 selectedColor: T.navy,
                 backgroundColor: T.card,
                 labelStyle: TextStyle(
@@ -70,8 +69,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
                   fontWeight: FontWeight.w700,
                   color: _filter == f ? Colors.white : T.textSecondary,
                 ),
-                side: BorderSide(
-                    color: _filter == f ? T.navy : T.border),
+                side: BorderSide(color: _filter == f ? T.navy : T.border),
                 shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(T.rMd)),
               ),
@@ -101,15 +99,19 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
                       padding: const EdgeInsets.only(bottom: 10),
                       child: _KartuPengajuan(
                         pengajuan: p,
-                        dipilih: p.id == terpilih?.id,
+                        dipilih: p.id == terpilih!.id,
                         onPilih: () => setState(() => _dipilih = p.id),
-                        onSetujui: () => _putuskan(context, p.id, true),
-                        onTolak: () => _putuskan(context, p.id, false),
+                        onSetujui: () => _putuskan(context, p, true),
+                        onTolak: () => _tolak(context, p),
                       ),
                     ),
                 ],
               );
-              final detail = _PanelDetail(pengajuan: terpilih!);
+              final detail = _PanelDetail(
+                pengajuan: terpilih,
+                onSetujui: () => _putuskan(context, terpilih!, true),
+                onTolak: () => _tolak(context, terpilih!),
+              );
 
               if (!lebar) {
                 return Column(
@@ -121,7 +123,7 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
                 children: [
                   Expanded(flex: 5, child: daftar),
                   const SizedBox(width: 16),
-                  Expanded(flex: 3, child: detail),
+                  Expanded(flex: 4, child: detail),
                 ],
               );
             },
@@ -130,15 +132,77 @@ class _AdminApprovalScreenState extends State<AdminApprovalScreen> {
     );
   }
 
-  void _putuskan(BuildContext context, String id, bool setujui) {
-    context.read<AppState>().putuskanPengajuan(id, setujui);
-    showToast(
+  void _putuskan(BuildContext context, PengajuanIzin p, bool setujui) {
+    context.read<AppState>().putuskanPengajuan(p.id, true);
+    showToast(context,
+        'Pengajuan ${p.namaPemohon} disetujui. Status karyawan diperbarui.',
+        ToastKind.success);
+  }
+
+  Future<void> _tolak(BuildContext context, PengajuanIzin p) async {
+    final c = TextEditingController();
+    final hasil = await showAdminDialog<String>(
       context,
-      setujui
-          ? 'Pengajuan disetujui. Karyawan akan menerima notifikasi.'
-          : 'Pengajuan ditolak dan dikembalikan ke karyawan.',
-      setujui ? ToastKind.success : ToastKind.error,
+      maxWidth: 460,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Text('Tolak Pengajuan',
+              style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 4),
+          Text('${p.namaPemohon} · ${p.jenis}',
+              style: const TextStyle(fontSize: 12, color: T.textSecondary)),
+          const SizedBox(height: 14),
+          TextField(
+            controller: c,
+            maxLines: 3,
+            autofocus: true,
+            decoration: const InputDecoration(
+              labelText: 'Alasan penolakan',
+              hintText: 'Contoh: bertepatan dengan jadwal rilis aplikasi.',
+              alignLabelWithHint: true,
+            ),
+            style: const TextStyle(fontSize: 13),
+          ),
+          const SizedBox(height: 6),
+          const Text('Alasan ini akan terlihat oleh karyawan.',
+              style: TextStyle(fontSize: 10.5, color: T.textMuted)),
+          const SizedBox(height: 16),
+          Row(
+            children: [
+              Expanded(
+                child: AppButton(
+                  label: 'Batal',
+                  variant: AppButtonVariant.secondary,
+                  height: 42,
+                  onPressed: () => Navigator.of(context).pop(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: AppButton(
+                  label: 'Tolak Pengajuan',
+                  variant: AppButtonVariant.danger,
+                  height: 42,
+                  onPressed: () => Navigator.of(context).pop(c.text),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
     );
+    c.dispose();
+    if (hasil == null || !context.mounted) return;
+    if (hasil.trim().length < 5) {
+      showToast(context, 'Alasan penolakan wajib diisi (minimal 5 karakter).',
+          ToastKind.error);
+      return;
+    }
+    context
+        .read<AppState>()
+        .putuskanPengajuan(p.id, false, alasanPenolakan: hasil.trim());
+    showToast(context, 'Pengajuan ditolak beserta alasannya.', ToastKind.error);
   }
 }
 
@@ -168,7 +232,7 @@ class _KartuPengajuan extends StatelessWidget {
     };
 
     return Material(
-      color: T.card,
+      color: dipilih ? T.blueBg.withValues(alpha: 0.45) : T.card,
       borderRadius: BorderRadius.circular(T.rLg),
       child: InkWell(
         onTap: onPilih,
@@ -176,7 +240,7 @@ class _KartuPengajuan extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(T.rLg),
-            border: Border.all(color: dipilih ? T.blueBorder : T.border),
+            border: Border.all(color: dipilih ? T.accent : T.border),
           ),
           child: Column(
             children: [
@@ -185,16 +249,19 @@ class _KartuPengajuan extends StatelessWidget {
                 child: Row(
                   children: [
                     Expanded(
-                      flex: 3,
+                      flex: 4,
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(p.namaPemohon ?? 'Karyawan',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w700)),
+                                  fontSize: 12.5, fontWeight: FontWeight.w700)),
                           const SizedBox(height: 3),
                           Text('${p.jabatanPemohon ?? '-'} · ${p.jenis}',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
                               style: const TextStyle(
                                   fontSize: 11, color: T.textMuted)),
                         ],
@@ -296,13 +363,26 @@ class _TombolKecil extends StatelessWidget {
 
 // ═══════════════════════════════════════════════════════════════
 class _PanelDetail extends StatelessWidget {
-  const _PanelDetail({required this.pengajuan});
+  const _PanelDetail({
+    required this.pengajuan,
+    required this.onSetujui,
+    required this.onTolak,
+  });
 
-  final PengajuanIzin pengajuan;
+  final PengajuanIzin? pengajuan;
+  final VoidCallback onSetujui;
+  final VoidCallback onTolak;
 
   @override
   Widget build(BuildContext context) {
     final p = pengajuan;
+    if (p == null) {
+      return const AdminPanel(
+        title: 'Detail Pengajuan',
+        subtitle: 'Belum ada pengajuan yang dipilih.',
+        child: SizedBox(height: 40),
+      );
+    }
     final tone = switch (p.status) {
       StatusPengajuan.disetujui => AppBadgeTone.green,
       StatusPengajuan.menunggu => AppBadgeTone.amber,
@@ -311,52 +391,103 @@ class _PanelDetail extends StatelessWidget {
 
     return AdminPanel(
       title: 'Detail Pengajuan',
-      subtitle: p.namaPemohon ?? 'Pilih pengajuan pada daftar',
+      subtitle: '${p.namaPemohon ?? '-'} · ${p.jabatanPemohon ?? '-'}',
       trailing: AppBadge(p.status.label, tone: tone),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _Baris(label: 'Jenis pengajuan', nilai: p.jenis),
           _Baris(label: 'Periode', nilai: p.periodeLabel),
+          _Baris(label: 'Jumlah hari', nilai: '${p.jumlahHari} hari'),
           _Baris(
-              label: 'Jumlah hari',
-              nilai:
-                  '${p.tanggalSelesai.difference(p.tanggalMulai).inDays + 1} hari'),
+            label: 'Diajukan pada',
+            nilai: p.diajukanPada == null
+                ? '—'
+                : '${tanggalSingkat(p.diajukanPada!)} · '
+                    '${jamMenit(p.diajukanPada!)}',
+          ),
           _Baris(
-              label: 'Diproses oleh',
-              nilai: p.diprosesOleh ?? 'Belum diproses'),
-          const SizedBox(height: 12),
-          const Text('Alasan',
+              label: 'Diproses oleh', nilai: p.diprosesOleh ?? 'Belum diproses'),
+          const SizedBox(height: 4),
+          const Text('Alasan karyawan',
               style: TextStyle(fontSize: 10.5, color: T.textMuted)),
           const SizedBox(height: 5),
-          Text(p.alasan,
-              style: const TextStyle(fontSize: 12, height: 1.55)),
-          const SizedBox(height: 14),
-          if (p.lampiranNama != null) ...[
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: T.blueBg,
-                borderRadius: BorderRadius.circular(T.rSm),
-                border: Border.all(color: T.blueBorder),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.attach_file_rounded,
-                      size: 15, color: T.accent),
-                  const SizedBox(width: 7),
-                  Expanded(
-                    child: Text(p.lampiranNama!,
-                        style: const TextStyle(
-                            fontSize: 11, color: T.accent)),
-                  ),
-                  const Icon(Icons.open_in_new_rounded,
-                      size: 14, color: T.accent),
-                ],
-              ),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(11),
+            decoration: BoxDecoration(
+              color: T.canvas,
+              borderRadius: BorderRadius.circular(T.rSm),
             ),
-            const SizedBox(height: 14),
+            child: Text(p.alasan,
+                style: const TextStyle(fontSize: 12, height: 1.55)),
+          ),
+          if (p.status == StatusPengajuan.ditolak &&
+              (p.alasanPenolakan ?? '').isNotEmpty) ...[
+            const SizedBox(height: 12),
+            const Text('Alasan penolakan',
+                style: TextStyle(fontSize: 10.5, color: T.textMuted)),
+            const SizedBox(height: 5),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(11),
+              decoration: BoxDecoration(
+                color: T.redBg,
+                borderRadius: BorderRadius.circular(T.rSm),
+                border: Border.all(color: T.redBorder),
+              ),
+              child: Text(p.alasanPenolakan!,
+                  style: const TextStyle(
+                      fontSize: 11.5,
+                      height: 1.5,
+                      color: T.red,
+                      fontWeight: FontWeight.w600)),
+            ),
           ],
+          const SizedBox(height: 12),
+          if (p.lampiran != null)
+            Material(
+              color: T.blueBg,
+              borderRadius: BorderRadius.circular(T.rSm),
+              child: InkWell(
+                onTap: () => tampilkanLampiran(context, p.lampiran!),
+                borderRadius: BorderRadius.circular(T.rSm),
+                child: Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(T.rSm),
+                    border: Border.all(color: T.blueBorder),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.attach_file_rounded,
+                          size: 15, color: T.accent),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                            '${p.lampiran!.nama} · ${p.lampiran!.ukuranLabel}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11, color: T.accent)),
+                      ),
+                      const Icon(Icons.open_in_new_rounded,
+                          size: 14, color: T.accent),
+                    ],
+                  ),
+                ),
+              ),
+            )
+          else
+            const Row(
+              children: [
+                Icon(Icons.attach_file_rounded, size: 15, color: T.textMuted),
+                SizedBox(width: 7),
+                Text('Tanpa lampiran',
+                    style: TextStyle(fontSize: 11, color: T.textMuted)),
+              ],
+            ),
+          const SizedBox(height: 16),
           if (p.status == StatusPengajuan.menunggu)
             Row(
               children: [
@@ -366,13 +497,7 @@ class _PanelDetail extends StatelessWidget {
                     icon: Icons.check_rounded,
                     variant: AppButtonVariant.success,
                     height: 42,
-                    onPressed: () {
-                      context
-                          .read<AppState>()
-                          .putuskanPengajuan(p.id, true);
-                      showToast(context, 'Pengajuan disetujui.',
-                          ToastKind.success);
-                    },
+                    onPressed: onSetujui,
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -382,12 +507,7 @@ class _PanelDetail extends StatelessWidget {
                     icon: Icons.close_rounded,
                     variant: AppButtonVariant.danger,
                     height: 42,
-                    onPressed: () {
-                      context
-                          .read<AppState>()
-                          .putuskanPengajuan(p.id, false);
-                      showToast(context, 'Pengajuan ditolak.', ToastKind.error);
-                    },
+                    onPressed: onTolak,
                   ),
                 ),
               ],
@@ -409,9 +529,8 @@ class _PanelDetail extends StatelessWidget {
                 style: TextStyle(
                   fontSize: 11.5,
                   fontWeight: FontWeight.w600,
-                  color: p.status == StatusPengajuan.disetujui
-                      ? T.green
-                      : T.red,
+                  color:
+                      p.status == StatusPengajuan.disetujui ? T.green : T.red,
                 ),
               ),
             ),

@@ -7,79 +7,88 @@ import '../../models/models.dart';
 import '../../state/app_state.dart';
 import 'admin_widgets.dart';
 
-/// Dashboard Admin: ringkasan statistik, grafik kehadiran, akses cepat,
-/// aktivitas terbaru, dan informasi penting.
-class AdminDashboardScreen extends StatelessWidget {
+/// Dashboard Admin: ringkasan hari ini, grafik kehadiran, akses cepat.
+class AdminDashboardScreen extends StatefulWidget {
   const AdminDashboardScreen({super.key, required this.onPindahMenu});
 
-  /// Mengganti menu aktif pada [AdminShell] (0..5).
   final ValueChanged<int> onPindahMenu;
+
+  @override
+  State<AdminDashboardScreen> createState() => _AdminDashboardScreenState();
+}
+
+class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
+  DateTime _diperbarui = DateTime.now();
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
-    final total = app.monitoring.length;
-    final hadir = app.totalHadir;
-    final terlambat = app.totalTerlambat;
-    final wfh = app.totalWfh;
-    final izin = total - hadir - terlambat - wfh;
+    final sekarang = DateTime.now();
+    final monitoring = app.monitoringHariIni;
 
     return ListView(
       padding: const EdgeInsets.all(24),
       children: [
         AdminPageTitle(
           title: 'Dashboard Admin',
-          subtitle:
-              'Ringkasan kehadiran karyawan hari ini, 26 Oktober 2026.',
+          subtitle: 'Ringkasan kehadiran ${tanggalPanjang(sekarang)}',
           actions: [
+            AppBadge('Diperbarui ${jamMenit(_diperbarui)}',
+                tone: AppBadgeTone.slate),
             AppButton(
-              label: 'Segarkan Data',
+              label: 'Perbarui',
               icon: Icons.refresh_rounded,
+              variant: AppButtonVariant.secondary,
               expand: false,
               height: 40,
-              variant: AppButtonVariant.secondary,
-              onPressed: () => showToast(
-                  context, 'Data dashboard diperbarui (simulasi).', ToastKind.info),
+              onPressed: () {
+                setState(() => _diperbarui = DateTime.now());
+                showToast(context, 'Data dashboard diperbarui.', ToastKind.info);
+              },
             ),
           ],
         ),
         const SizedBox(height: 18),
 
-        // ── Statistik ──────────────────────────────────────
+        // ── Statistik hari ini ──────────────────────────────
         LayoutBuilder(
           builder: (context, c) {
-            final kolom = c.maxWidth > 900 ? 4 : (c.maxWidth > 560 ? 2 : 1);
+            final kolom = c.maxWidth > 1000 ? 4 : (c.maxWidth > 620 ? 2 : 1);
             return GridView.count(
               crossAxisCount: kolom,
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               crossAxisSpacing: 12,
               mainAxisSpacing: 12,
-              childAspectRatio: kolom == 1 ? 3.4 : 2.1,
+              childAspectRatio: kolom == 1 ? 3.4 : 1.9,
               children: [
                 StatCard(
                   label: 'Total Karyawan',
                   value: '${app.totalKaryawan}',
-                  note: 'Terdaftar di sistem',
+                  note: 'Karyawan aktif terdaftar',
                   tone: StatTone.slate,
+                  onTap: () => widget.onPindahMenu(4),
                 ),
                 StatCard(
                   label: 'Hadir Hari Ini',
-                  value: '$hadir dari $total',
-                  note: '${app.persenKehadiran}% kehadiran',
+                  value: '${app.masukHariIni}',
+                  note: '${app.belumPresensiHariIni} belum presensi',
                   tone: StatTone.green,
+                  onTap: () => widget.onPindahMenu(1),
                 ),
                 StatCard(
                   label: 'Terlambat',
-                  value: '$terlambat karyawan',
-                  note: 'Perlu perhatian HC',
+                  value: '${app.terlambatHariIni}',
+                  note: 'Melewati batas 08:15',
                   tone: StatTone.amber,
+                  onTap: () => widget.onPindahMenu(1),
                 ),
                 StatCard(
                   label: 'Menunggu Persetujuan',
                   value: '${app.totalMenungguPersetujuan}',
-                  note: 'Pengajuan cuti/izin',
+                  note: 'Pengajuan cuti & izin',
                   tone: StatTone.blue,
+                  onTap: () => widget.onPindahMenu(3),
                 ),
               ],
             );
@@ -87,70 +96,40 @@ class AdminDashboardScreen extends StatelessWidget {
         ),
         const SizedBox(height: 16),
 
-        // ── Grafik + akses cepat ───────────────────────────
+        // ── Grafik + akses cepat ────────────────────────────
         LayoutBuilder(
           builder: (context, c) {
-            final lebar = c.maxWidth > 980;
+            final lebar = c.maxWidth > 900;
             final grafik = AdminPanel(
-              title: 'Ringkasan Kehadiran',
-              subtitle: 'Distribusi status presensi hari ini',
-              child: Column(
-                children: [
-                  _BarKehadiran(
-                    label: 'Tepat waktu',
-                    ket: '$hadir karyawan',
-                    persen: total == 0 ? 0 : hadir / total,
-                    warna: const Color(0xFF10B981),
-                  ),
-                  const SizedBox(height: 16),
-                  _BarKehadiran(
-                    label: 'Terlambat',
-                    ket: '$terlambat karyawan',
-                    persen: total == 0 ? 0 : terlambat / total,
-                    warna: const Color(0xFFF59E0B),
-                  ),
-                  const SizedBox(height: 16),
-                  _BarKehadiran(
-                    label: 'WFH / luar radius',
-                    ket: '$wfh karyawan',
-                    persen: total == 0 ? 0 : wfh / total,
-                    warna: T.accent,
-                  ),
-                  const SizedBox(height: 16),
-                  _BarKehadiran(
-                    label: 'Izin / cuti',
-                    ket: '$izin karyawan',
-                    persen: total == 0 ? 0 : izin / total,
-                    warna: T.textMuted,
-                  ),
-                ],
-              ),
+              title: 'Tingkat Kehadiran 5 Hari Terakhir',
+              subtitle:
+                  'Perbandingan jumlah karyawan hadir terhadap total karyawan.',
+              child: _GrafikBatang(data: app.grafikMingguan()),
             );
-
-            final aksesCepat = AdminPanel(
+            final akses = AdminPanel(
               title: 'Akses Cepat',
-              subtitle: 'Navigasi ke fungsi yang sering dipakai',
+              subtitle: 'Pintasan ke menu yang paling sering dipakai.',
               child: Column(
                 children: [
                   _TombolAkses(
                     ikon: Icons.fact_check_rounded,
                     judul: 'Setujui Pengajuan',
                     ket: '${app.totalMenungguPersetujuan} menunggu',
-                    onTap: () => onPindahMenu(3),
+                    onTap: () => widget.onPindahMenu(3),
                   ),
                   const SizedBox(height: 10),
                   _TombolAkses(
                     ikon: Icons.my_location_rounded,
                     judul: 'Live Tracking',
                     ket: 'Radius ${app.geofence.radiusMeter} m',
-                    onTap: () => onPindahMenu(2),
+                    onTap: () => widget.onPindahMenu(2),
                   ),
                   const SizedBox(height: 10),
                   _TombolAkses(
                     ikon: Icons.download_rounded,
                     judul: 'Ekspor Laporan',
-                    ket: 'Excel / PDF',
-                    onTap: () => onPindahMenu(5),
+                    ket: 'CSV / PDF',
+                    onTap: () => widget.onPindahMenu(5),
                   ),
                 ],
               ),
@@ -158,108 +137,119 @@ class AdminDashboardScreen extends StatelessWidget {
 
             if (!lebar) {
               return Column(
-                children: [grafik, const SizedBox(height: 16), aksesCepat],
+                children: [grafik, const SizedBox(height: 16), akses],
               );
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 3, child: grafik),
+                Expanded(flex: 5, child: grafik),
                 const SizedBox(width: 16),
-                Expanded(flex: 2, child: aksesCepat),
+                Expanded(flex: 3, child: akses),
               ],
             );
           },
         ),
         const SizedBox(height: 16),
 
-        // ── Aktivitas + informasi ──────────────────────────
+        // ── Presensi terbaru + info ─────────────────────────
         LayoutBuilder(
           builder: (context, c) {
-            final lebar = c.maxWidth > 980;
-            final aktivitas = AdminPanel(
-              title: 'Aktivitas Terbaru',
-              subtitle: 'Log presensi masuk karyawan hari ini',
-              child: Column(
-                children: [
-                  for (final m in app.monitoring.take(4))
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32,
-                            height: 32,
-                            decoration: BoxDecoration(
-                              color: T.blueBg,
-                              borderRadius: BorderRadius.circular(T.rSm),
-                            ),
-                            alignment: Alignment.center,
-                            child: Text(m.inisial,
-                                style: const TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.w800,
-                                    color: T.accent)),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
+            final lebar = c.maxWidth > 900;
+            final terbaru = AdminPanel(
+              title: 'Presensi Terbaru Hari Ini',
+              subtitle: '${monitoring.length} karyawan sudah melakukan presensi.',
+              trailing: AdminTextAction(
+                label: 'Lihat semua',
+                onTap: () => widget.onPindahMenu(1),
+              ),
+              child: monitoring.isEmpty
+                  ? const _Kosong(
+                      pesan: 'Belum ada karyawan yang melakukan presensi hari ini.')
+                  : Column(
+                      children: [
+                        for (final m in monitoring.take(5))
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 10),
+                            child: Row(
                               children: [
-                                Text(m.nama,
-                                    style: const TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700)),
-                                Text(
-                                    '${m.jamMasuk} · ${m.keterangan}',
-                                    style: const TextStyle(
-                                        fontSize: 10.5, color: T.textMuted)),
+                                Container(
+                                  width: 34,
+                                  height: 34,
+                                  decoration: BoxDecoration(
+                                    color: T.blueBg,
+                                    borderRadius:
+                                        BorderRadius.circular(T.rSm),
+                                  ),
+                                  alignment: Alignment.center,
+                                  child: Text(m.inisial,
+                                      style: const TextStyle(
+                                          fontSize: 10.5,
+                                          fontWeight: FontWeight.w800,
+                                          color: T.accent)),
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(m.nama,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.w700)),
+                                      Text(
+                                          'Masuk ${m.jamMasuk} · Pulang ${m.jamPulang}',
+                                          style: const TextStyle(
+                                              fontSize: 10.5,
+                                              color: T.textMuted)),
+                                    ],
+                                  ),
+                                ),
+                                AppBadge(
+                                  m.status.label,
+                                  tone: switch (m.status) {
+                                    StatusPresensi.hadir => AppBadgeTone.green,
+                                    StatusPresensi.terlambat =>
+                                      AppBadgeTone.amber,
+                                    StatusPresensi.wfh => AppBadgeTone.blue,
+                                    StatusPresensi.izinDisetujui =>
+                                      AppBadgeTone.slate,
+                                  },
+                                ),
                               ],
                             ),
                           ),
-                          AppBadge(
-                            m.status.label,
-                            tone: m.status == StatusPresensi.hadir
-                                ? AppBadgeTone.green
-                                : m.status == StatusPresensi.terlambat
-                                    ? AppBadgeTone.amber
-                                    : AppBadgeTone.blue,
-                          ),
-                        ],
-                      ),
+                      ],
                     ),
-                ],
-              ),
             );
 
-            final informasi = AdminPanel(
+            final info = AdminPanel(
               title: 'Informasi Penting',
-              subtitle: 'Perlu tindakan HC',
+              subtitle: 'Ringkasan kebijakan kehadiran yang berlaku.',
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _ItemInformasi(
+                  _InfoBaris(
                     ikon: Icons.schedule_rounded,
-                    warna: T.amber,
-                    bg: T.amberBg,
-                    judul: '$terlambat karyawan terlambat hari ini',
-                    ket: 'Perlu konfirmasi alasan keterlambatan.',
+                    judul: 'Jam kerja',
+                    isi: 'Shift pagi 08.00 – 17.00 WIB, toleransi 15 menit.',
                   ),
                   const SizedBox(height: 12),
-                  _ItemInformasi(
-                    ikon: Icons.fact_check_rounded,
-                    warna: T.accent,
-                    bg: T.blueBg,
-                    judul:
-                        '${app.totalMenungguPersetujuan} pengajuan menunggu',
-                    ket: 'Setujui atau tolak dari menu Persetujuan.',
+                  _InfoBaris(
+                    ikon: Icons.my_location_rounded,
+                    judul: 'Geofence',
+                    isi:
+                        '${app.geofence.namaKantor} · radius ${app.geofence.radiusMeter} m.',
                   ),
                   const SizedBox(height: 12),
-                  _ItemInformasi(
-                    ikon: Icons.location_off_rounded,
-                    warna: T.red,
-                    bg: T.redBg,
-                    judul: '$wfh karyawan di luar radius',
-                    ket: 'Presensi tercatat sebagai WFH.',
+                  _InfoBaris(
+                    ikon: Icons.percent_rounded,
+                    judul: 'Kehadiran bulan ini',
+                    isi:
+                        '${app.persenKehadiran}% dari ${app.totalCatatanBulanIni} catatan presensi.',
                   ),
                 ],
               ),
@@ -267,15 +257,15 @@ class AdminDashboardScreen extends StatelessWidget {
 
             if (!lebar) {
               return Column(
-                children: [aktivitas, const SizedBox(height: 16), informasi],
+                children: [terbaru, const SizedBox(height: 16), info],
               );
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Expanded(flex: 3, child: aktivitas),
+                Expanded(flex: 5, child: terbaru),
                 const SizedBox(width: 16),
-                Expanded(flex: 2, child: informasi),
+                Expanded(flex: 3, child: info),
               ],
             );
           },
@@ -286,58 +276,66 @@ class AdminDashboardScreen extends StatelessWidget {
 }
 
 // ═══════════════════════════════════════════════════════════════
-class _BarKehadiran extends StatelessWidget {
-  const _BarKehadiran({
-    required this.label,
-    required this.ket,
-    required this.persen,
-    required this.warna,
-  });
+class _GrafikBatang extends StatelessWidget {
+  const _GrafikBatang({required this.data});
 
-  final String label;
-  final String ket;
-  final double persen;
-  final Color warna;
+  /// (label hari, jumlah hadir, total karyawan)
+  final List<(String, int, int)> data;
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        SizedBox(
-          width: 130,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 11.5, fontWeight: FontWeight.w600)),
-              const SizedBox(height: 2),
-              Text(ket,
-                  style: const TextStyle(fontSize: 10, color: T.textMuted)),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: persen.clamp(0, 1),
-              minHeight: 8,
-              backgroundColor: const Color(0xFFEDF0F4),
-              valueColor: AlwaysStoppedAnimation(warna),
+    return SizedBox(
+      height: 190,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.end,
+        children: [
+          for (final (label, masuk, total) in data)
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 6),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    Text('$masuk',
+                        style: const TextStyle(
+                            fontSize: 11,
+                            fontWeight: FontWeight.w800,
+                            color: T.navy)),
+                    const SizedBox(height: 6),
+                    Flexible(
+                      child: FractionallySizedBox(
+                        heightFactor: total == 0
+                            ? 0.02
+                            : (masuk / total).clamp(0.04, 1.0),
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          width: double.infinity,
+                          constraints: const BoxConstraints(maxWidth: 46),
+                          decoration: BoxDecoration(
+                            gradient: LinearGradient(
+                              begin: Alignment.topCenter,
+                              end: Alignment.bottomCenter,
+                              colors: [
+                                T.accent.withValues(alpha: 0.85),
+                                T.navy,
+                              ],
+                            ),
+                            borderRadius: const BorderRadius.vertical(
+                                top: Radius.circular(6)),
+                          ),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    Text(label,
+                        style: const TextStyle(
+                            fontSize: 10.5, color: T.textSecondary)),
+                  ],
+                ),
+              ),
             ),
-          ),
-        ),
-        const SizedBox(width: 12),
-        SizedBox(
-          width: 42,
-          child: Text('${(persen * 100).round()}%',
-              textAlign: TextAlign.right,
-              style:
-                  const TextStyle(fontSize: 11, fontWeight: FontWeight.w800)),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -358,7 +356,7 @@ class _TombolAkses extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: T.blueBg,
+      color: T.card,
       borderRadius: BorderRadius.circular(T.rMd),
       child: InkWell(
         onTap: onTap,
@@ -367,11 +365,19 @@ class _TombolAkses extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 11),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(T.rMd),
-            border: Border.all(color: T.blueBorder),
+            border: Border.all(color: T.border),
           ),
           child: Row(
             children: [
-              Icon(ikon, size: 18, color: T.accent),
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: T.blueBg,
+                  borderRadius: BorderRadius.circular(T.rSm),
+                ),
+                child: Icon(ikon, size: 16, color: T.accent),
+              ),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -382,12 +388,12 @@ class _TombolAkses extends StatelessWidget {
                             fontSize: 12, fontWeight: FontWeight.w700)),
                     Text(ket,
                         style: const TextStyle(
-                            fontSize: 10, color: T.textMuted)),
+                            fontSize: 10.5, color: T.textMuted)),
                   ],
                 ),
               ),
               const Icon(Icons.chevron_right_rounded,
-                  size: 16, color: T.textMuted),
+                  size: 17, color: T.textMuted),
             ],
           ),
         ),
@@ -396,36 +402,24 @@ class _TombolAkses extends StatelessWidget {
   }
 }
 
-class _ItemInformasi extends StatelessWidget {
-  const _ItemInformasi({
+class _InfoBaris extends StatelessWidget {
+  const _InfoBaris({
     required this.ikon,
-    required this.warna,
-    required this.bg,
     required this.judul,
-    required this.ket,
+    required this.isi,
   });
 
   final IconData ikon;
-  final Color warna;
-  final Color bg;
   final String judul;
-  final String ket;
+  final String isi;
 
   @override
   Widget build(BuildContext context) {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Container(
-          width: 34,
-          height: 34,
-          decoration: BoxDecoration(
-            color: bg,
-            borderRadius: BorderRadius.circular(T.rSm),
-          ),
-          child: Icon(ikon, size: 17, color: warna),
-        ),
-        const SizedBox(width: 10),
+        Icon(ikon, size: 15, color: T.accent),
+        const SizedBox(width: 8),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -434,13 +428,35 @@ class _ItemInformasi extends StatelessWidget {
                   style: const TextStyle(
                       fontSize: 11.5, fontWeight: FontWeight.w700)),
               const SizedBox(height: 2),
-              Text(ket,
-                  style:
-                      const TextStyle(fontSize: 10.5, color: T.textMuted)),
+              Text(isi,
+                  style: const TextStyle(
+                      fontSize: 11, height: 1.45, color: T.textSecondary)),
             ],
           ),
         ),
       ],
+    );
+  }
+}
+
+class _Kosong extends StatelessWidget {
+  const _Kosong({required this.pesan});
+
+  final String pesan;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 22),
+      child: Column(
+        children: [
+          const Icon(Icons.inbox_rounded, size: 32, color: T.textMuted),
+          const SizedBox(height: 8),
+          Text(pesan,
+              textAlign: TextAlign.center,
+              style: const TextStyle(fontSize: 11.5, color: T.textSecondary)),
+        ],
+      ),
     );
   }
 }

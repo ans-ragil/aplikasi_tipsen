@@ -4,11 +4,9 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../core/widgets.dart';
 import '../state/app_state.dart';
-import 'admin/admin_shell.dart';
 
-/// Halaman Login TIPSEN.
-/// Validasi inline (email format + wajib isi), toggle lihat sandi,
-/// lupa sandi (simulasi), dan tombol Masuk.
+/// Halaman Login: validasi kredensial nyata terhadap akun demo,
+/// plus alur "lupa kata sandi" dan pintu masuk portal HC.
 class LoginScreen extends StatefulWidget {
   const LoginScreen({super.key});
 
@@ -20,11 +18,9 @@ class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
   final _emailC = TextEditingController();
   final _sandiC = TextEditingController();
-  bool _lihatSandi = false;
-  bool _memproses = false;
 
-  static final _emailRegex =
-      RegExp(r'^[^\s@]+@[^\s@]+\.[^\s@]+$');
+  bool _lihatSandi = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -33,56 +29,156 @@ class _LoginScreenState extends State<LoginScreen> {
     super.dispose();
   }
 
-  Future<void> _masuk() async {
+  void _masuk() {
+    setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
-    setState(() => _memproses = true);
-    // Simulasi proses autentikasi (nanti: Firebase Authentication).
-    await Future.delayed(const Duration(milliseconds: 700));
+    final app = context.read<AppState>();
+    final pesan = app.masuk(_emailC.text, _sandiC.text);
+    if (pesan != null) {
+      setState(() => _error = pesan);
+      return;
+    }
+    // Toast selamat datang ditampilkan oleh shell tujuan (ShellScreen /
+    // AdminShell) setelah frame pertama, supaya muncul di dalam frame
+    // aplikasi dan tidak menutupi navigasi bawah.
+  }
+
+  Future<void> _lupaSandi() async {
+    final c = TextEditingController(text: _emailC.text);
+    final email = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(T.rLg)),
+        title: const Text('Lupa Kata Sandi',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Masukkan email terdaftar. Sistem akan mengirim tautan atur ulang '
+              'kata sandi melalui HC Admin.',
+              style: TextStyle(fontSize: 12.5, color: T.textSecondary, height: 1.5),
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: c,
+              autofocus: true,
+              decoration: const InputDecoration(
+                labelText: 'Email Karyawan',
+                hintText: 'nama@tipsen.id',
+              ),
+              style: const TextStyle(fontSize: 14),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('Batal',
+                style: TextStyle(fontSize: 13, color: T.textSecondary)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(c.text),
+            style: FilledButton.styleFrom(
+              backgroundColor: T.navy,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(T.rSm)),
+            ),
+            child: const Text('Kirim Permintaan',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    c.dispose();
+    if (email == null || email.trim().isEmpty || !mounted) return;
+    final err = context.read<AppState>().resetSandi(email);
     if (!mounted) return;
-    context.read<AppState>().masuk(_emailC.text);
-    showToast(context, 'Login berhasil. Selamat datang, Anisa!', ToastKind.success);
+    showToast(
+      context,
+      err ??
+          'Permintaan atur ulang dikirim ke HC Admin. Ikuti instruksi pada '
+              'email ${email.trim()}.',
+      err == null ? ToastKind.success : ToastKind.error,
+    );
+  }
+
+  void _masukAdmin() {
+    final app = context.read<AppState>();
+    final pesan = app.masuk(AppState.emailAdmin, AppState.sandiAdmin);
+    if (pesan != null) {
+      showToast(context, pesan, ToastKind.error);
+      return;
+    }
+    showToast(context, 'Masuk sebagai HC Admin (demo).', ToastKind.success);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: T.canvas,
       body: SafeArea(
         child: Center(
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(24, 32, 24, 24),
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 420),
+              constraints: const BoxConstraints(maxWidth: 430),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  // ── Brand ──────────────────────────────────
-                  const _BrandMark(),
-                  const SizedBox(height: 24),
-                  Text(
-                    'TIPSEN',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.displaySmall,
+                  // ── Brand ────────────────────────────────
+                  Center(
+                    child: Container(
+                      width: 66,
+                      height: 66,
+                      decoration: BoxDecoration(
+                        color: T.navy,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: T.navy.withValues(alpha: 0.28),
+                            blurRadius: 24,
+                            offset: const Offset(0, 10),
+                          ),
+                        ],
+                      ),
+                      alignment: Alignment.center,
+                      child: const Text('T',
+                          style: TextStyle(
+                              fontSize: 32,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white)),
+                    ),
                   ),
-                  const SizedBox(height: 6),
-                  const Text(
-                    'Presensi Cepat, Akurat & Transparan',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(fontSize: 13, color: T.textSecondary),
+                  const SizedBox(height: 14),
+                  const Center(
+                    child: Text('TIPSEN',
+                        style: TextStyle(
+                            fontSize: 24,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: 2.2,
+                            color: T.navy)),
                   ),
-                  const SizedBox(height: 28),
+                  const SizedBox(height: 4),
+                  const Center(
+                    child: Text('Presensi Cepat, Akurat & Transparan',
+                        style: TextStyle(fontSize: 12, color: T.textSecondary)),
+                  ),
+                  const SizedBox(height: 22),
 
-                  // ── Kartu form ─────────────────────────────
+                  // ── Kartu form ───────────────────────────
                   Container(
-                    padding: const EdgeInsets.all(22),
+                    padding: const EdgeInsets.all(18),
                     decoration: BoxDecoration(
-                      color: Colors.white,
+                      color: T.card,
                       borderRadius: BorderRadius.circular(T.rXl),
                       border: Border.all(color: T.border),
                       boxShadow: [
                         BoxShadow(
-                          color: Colors.black.withValues(alpha: 0.05),
-                          blurRadius: 30,
+                          color: const Color(0xFF1B2A46).withValues(alpha: 0.05),
+                          blurRadius: 26,
                           offset: const Offset(0, 12),
                         ),
                       ],
@@ -92,106 +188,142 @@ class _LoginScreenState extends State<LoginScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          const Text(
-                            'Masuk ke Akun Anda',
-                            style: TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w800),
-                          ),
-                          const SizedBox(height: 4),
-                          const Text(
-                            'Gunakan email karyawan yang terdaftar.',
-                            style:
-                                TextStyle(fontSize: 12, color: T.textSecondary),
-                          ),
-                          const SizedBox(height: 18),
-
-                          // Email
+                          const Text('Masuk ke Akun Anda',
+                              style: TextStyle(
+                                  fontSize: 16, fontWeight: FontWeight.w800)),
+                          const SizedBox(height: 3),
+                          const Text('Gunakan email karyawan yang terdaftar.',
+                              style: TextStyle(
+                                  fontSize: 12, color: T.textSecondary)),
+                          const SizedBox(height: 16),
                           TextFormField(
                             controller: _emailC,
                             keyboardType: TextInputType.emailAddress,
-                            autofillHints: const [AutofillHints.email],
+                            textInputAction: TextInputAction.next,
                             decoration: const InputDecoration(
                               labelText: 'Email Karyawan',
                               hintText: 'nama@tipsen.id',
-                              prefixIcon:
-                                  Icon(Icons.mail_outline_rounded, size: 20),
+                              prefixIcon: Icon(Icons.mail_outline_rounded,
+                                  size: 19, color: T.textMuted),
                             ),
                             style: const TextStyle(fontSize: 14),
                             validator: (v) {
-                              final e = v?.trim() ?? '';
-                              if (e.isEmpty) return 'Email karyawan wajib diisi.';
-                              if (!_emailRegex.hasMatch(e)) {
-                                return 'Masukkan format email yang valid.';
+                              final t = v?.trim() ?? '';
+                              if (t.isEmpty) return 'Email wajib diisi.';
+                              final pola =
+                                  RegExp(r'^[\w.+-]+@[\w-]+\.[\w.-]+$');
+                              if (!pola.hasMatch(t)) {
+                                return 'Format email belum benar.';
                               }
                               return null;
                             },
                           ),
-                          const SizedBox(height: 14),
-
-                          // Kata sandi
+                          const SizedBox(height: 12),
                           TextFormField(
                             controller: _sandiC,
                             obscureText: !_lihatSandi,
+                            textInputAction: TextInputAction.done,
+                            onFieldSubmitted: (_) => _masuk(),
                             decoration: InputDecoration(
                               labelText: 'Kata Sandi',
-                              prefixIcon: const Icon(
-                                  Icons.lock_outline_rounded,
-                                  size: 20),
+                              hintText: '••••••••',
+                              prefixIcon: const Icon(Icons.lock_outline_rounded,
+                                  size: 19, color: T.textMuted),
                               suffixIcon: IconButton(
+                                tooltip: _lihatSandi
+                                    ? 'Sembunyikan sandi'
+                                    : 'Lihat sandi',
                                 onPressed: () =>
                                     setState(() => _lihatSandi = !_lihatSandi),
                                 icon: Icon(
                                   _lihatSandi
-                                      ? Icons.visibility_off_outlined
-                                      : Icons.visibility_outlined,
-                                  size: 20,
-                                  color: T.textSecondary,
+                                      ? Icons.visibility_off_rounded
+                                      : Icons.visibility_rounded,
+                                  size: 19,
+                                  color: T.textMuted,
                                 ),
                               ),
                             ),
                             style: const TextStyle(fontSize: 14),
-                            validator: (v) =>
-                                (v == null || v.isEmpty) ? 'Kata sandi wajib diisi.' : null,
-                            onFieldSubmitted: (_) => _masuk(),
+                            validator: (v) {
+                              if ((v ?? '').isEmpty) return 'Kata sandi wajib diisi.';
+                              if ((v ?? '').length < 6) {
+                                return 'Kata sandi minimal 6 karakter.';
+                              }
+                              return null;
+                            },
                           ),
+                          const SizedBox(height: 6),
                           Align(
                             alignment: Alignment.centerRight,
                             child: TextButton(
-                              onPressed: () => showToast(context,
-                                  'Hubungi HC Admin untuk mereset kata sandi (simulasi).',
-                                  ToastKind.info),
+                              onPressed: _lupaSandi,
                               style: TextButton.styleFrom(
                                 padding:
                                     const EdgeInsets.symmetric(horizontal: 4),
+                                minimumSize: const Size(0, 34),
                                 textStyle: const TextStyle(
                                     fontSize: 12, fontWeight: FontWeight.w700),
                               ),
                               child: const Text('Lupa kata sandi?'),
                             ),
                           ),
-                          const SizedBox(height: 6),
-
+                          if (_error != null) ...[
+                            Container(
+                              padding: const EdgeInsets.all(11),
+                              decoration: BoxDecoration(
+                                color: T.redBg,
+                                borderRadius: BorderRadius.circular(T.rSm),
+                                border: Border.all(color: T.redBorder),
+                              ),
+                              child: Row(
+                                children: [
+                                  const Icon(Icons.error_outline_rounded,
+                                      size: 17, color: T.red),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(_error!,
+                                        style: const TextStyle(
+                                            fontSize: 12,
+                                            height: 1.4,
+                                            color: T.red,
+                                            fontWeight: FontWeight.w600)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 10),
+                          ],
                           AppButton(
-                            label: _memproses ? 'Memproses…' : 'Masuk Sekarang',
+                            label: 'Masuk Sekarang',
                             icon: Icons.login_rounded,
-                            onPressed: _memproses ? null : _masuk,
+                            onPressed: _masuk,
                           ),
-                          const SizedBox(height: 12),
+                          const SizedBox(height: 10),
                           Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Text('Belum punya akses? ',
-                                  style: TextStyle(
-                                      fontSize: 12, color: T.textSecondary)),
-                              GestureDetector(
-                                onTap: () => showToast(context,
-                                    'Silakan hubungi HC Admin (simulasi).',
-                                    ToastKind.info),
-                                child: const Text('Hubungi HC Admin',
+                              Flexible(
+                                child: const Text('Belum punya akses? ',
+                                    textAlign: TextAlign.center,
                                     style: TextStyle(
-                                        fontSize: 12,
-                                        fontWeight: FontWeight.w700,
-                                        color: T.accent)),
+                                        fontSize: 11.5,
+                                        color: T.textSecondary)),
+                              ),
+                              Flexible(
+                                child: GestureDetector(
+                                  onTap: () => showToast(
+                                      context,
+                                      'Ajukan pembuatan akun ke HC Admin melalui '
+                                          'email hc@tipsen.id.',
+                                      ToastKind.info),
+                                  child: const Text('Hubungi HC Admin',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                          fontSize: 11.5,
+                                          fontWeight: FontWeight.w700,
+                                          color: T.accent)),
+                                ),
                               ),
                             ],
                           ),
@@ -199,27 +331,77 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: 12),
 
-                  // ── Pintu masuk portal admin (demo) ─────────
+                  // ── Akun demo ────────────────────────────
+                  Container(
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: T.blueBg,
+                      borderRadius: BorderRadius.circular(T.rLg),
+                      border: Border.all(color: T.blueBorder),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Row(
+                          children: [
+                            Icon(Icons.key_rounded, size: 16, color: T.accent),
+                            SizedBox(width: 7),
+                            Text('Akun demo',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w800,
+                                    color: T.accent)),
+                          ],
+                        ),
+                        const SizedBox(height: 8),
+                        _BarisDemo(
+                          peran: 'Karyawan',
+                          email: AppState.emailKaryawan,
+                          sandi: AppState.sandiKaryawan,
+                          onPakai: () => setState(() {
+                            _emailC.text = AppState.emailKaryawan;
+                            _sandiC.text = AppState.sandiKaryawan;
+                            _error = null;
+                          }),
+                        ),
+                        const SizedBox(height: 6),
+                        _BarisDemo(
+                          peran: 'HC Admin',
+                          email: AppState.emailAdmin,
+                          sandi: AppState.sandiAdmin,
+                          onPakai: () => setState(() {
+                            _emailC.text = AppState.emailAdmin;
+                            _sandiC.text = AppState.sandiAdmin;
+                            _error = null;
+                          }),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
                   AppButton(
                     label: 'Masuk sebagai HC Admin (Demo)',
                     icon: Icons.admin_panel_settings_rounded,
                     variant: AppButtonVariant.secondary,
-                    onPressed: () => Navigator.of(context).push(
-                      MaterialPageRoute(builder: (_) => const AdminShell()),
-                    ),
+                    height: 46,
+                    onPressed: _masukAdmin,
                   ),
-                  const SizedBox(height: 20),
-                  const Row(
+                  const SizedBox(height: 16),
+                  Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.verified_user_outlined,
+                      const Icon(Icons.verified_user_outlined,
                           size: 14, color: T.textMuted),
-                      SizedBox(width: 6),
-                      Text(
-                        'Data Anda terenkripsi · Kebijakan Privasi TIPSEN',
-                        style: TextStyle(fontSize: 11, color: T.textMuted),
+                      const SizedBox(width: 6),
+                      Flexible(
+                        child: Text(
+                          'Data tersimpan lokal di browser · Kebijakan Privasi TIPSEN',
+                          textAlign: TextAlign.center,
+                          style:
+                              const TextStyle(fontSize: 11, color: T.textMuted),
+                        ),
                       ),
                     ],
                   ),
@@ -233,37 +415,48 @@ class _LoginScreenState extends State<LoginScreen> {
   }
 }
 
-/// Logo aplikasi: lingkaran navy dengan huruf T (menggantikan aset SVG Figma).
-class _BrandMark extends StatelessWidget {
-  const _BrandMark();
+class _BarisDemo extends StatelessWidget {
+  const _BarisDemo({
+    required this.peran,
+    required this.email,
+    required this.sandi,
+    required this.onPakai,
+  });
+
+  final String peran;
+  final String email;
+  final String sandi;
+  final VoidCallback onPakai;
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Container(
-        width: 88,
-        height: 88,
-        decoration: BoxDecoration(
-          shape: BoxShape.circle,
-          gradient: T.heroGradient,
-          boxShadow: [
-            BoxShadow(
-              color: T.navy.withValues(alpha: 0.35),
-              blurRadius: 24,
-              offset: const Offset(0, 10),
-            ),
-          ],
-        ),
-        alignment: Alignment.center,
-        child: const Text(
-          'T',
-          style: TextStyle(
-            fontSize: 44,
-            fontWeight: FontWeight.w800,
-            color: Colors.white,
+    return Row(
+      children: [
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(peran,
+                  style: const TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w800,
+                      color: T.accent)),
+              Text('$email · $sandi',
+                  style: const TextStyle(fontSize: 11, color: T.textSecondary)),
+            ],
           ),
         ),
-      ),
+        TextButton(
+          onPressed: onPakai,
+          style: TextButton.styleFrom(
+            minimumSize: const Size(0, 30),
+            padding: const EdgeInsets.symmetric(horizontal: 8),
+            textStyle:
+                const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
+          ),
+          child: const Text('Isi otomatis'),
+        ),
+      ],
     );
   }
 }

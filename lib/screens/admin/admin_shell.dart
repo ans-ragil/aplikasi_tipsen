@@ -2,15 +2,17 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import '../../core/theme.dart';
+import '../../core/widgets.dart';
 import '../../state/app_state.dart';
 import 'admin_approval_screen.dart';
 import 'admin_dashboard_screen.dart';
 import 'admin_employees_screen.dart';
 import 'admin_monitoring_screen.dart';
+import 'admin_profil_screen.dart';
 import 'admin_reports_screen.dart';
 import 'admin_tracking_screen.dart';
 
-/// Halaman web admin (HC Portal): topbar gelap + sidebar 6 menu.
+/// Portal HC (web admin): topbar gelap + sidebar 7 menu.
 class AdminShell extends StatefulWidget {
   const AdminShell({super.key});
 
@@ -29,7 +31,56 @@ class _AdminShellState extends State<AdminShell> {
     (Icons.event_available_rounded, 'Persetujuan Cuti & Izin'),
     (Icons.groups_rounded, 'Manajemen Karyawan'),
     (Icons.description_rounded, 'Laporan & Ekspor Data'),
+    (Icons.manage_accounts_rounded, 'Profil & Pengaturan'),
   ];
+
+  void _pindah(int i) => setState(() => _menu = i);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      showToast(context, 'Masuk sebagai HC Admin. Selamat bekerja, Bambang!',
+          ToastKind.success);
+    });
+  }
+
+  Future<void> _konfirmasiKeluar() async {
+    final keluar = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(T.rLg)),
+        title: const Text('Keluar dari Portal HC?',
+            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
+        content: const Text(
+          'Anda akan kembali ke halaman login TIPSEN.',
+          style: TextStyle(fontSize: 13, color: T.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(false),
+            child: const Text('Batal',
+                style: TextStyle(fontSize: 13, color: T.textSecondary)),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: T.red,
+              shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(T.rSm)),
+            ),
+            child: const Text('Keluar',
+                style: TextStyle(fontSize: 13, fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
+    );
+    if (keluar == true && mounted) {
+      context.read<AppState>().keluar();
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -39,14 +90,13 @@ class _AdminShellState extends State<AdminShell> {
     final isi = IndexedStack(
       index: _menu,
       children: [
-        AdminDashboardScreen(
-          onPindahMenu: (i) => setState(() => _menu = i),
-        ),
+        AdminDashboardScreen(onPindahMenu: _pindah),
         const AdminMonitoringScreen(),
         const AdminTrackingScreen(),
         const AdminApprovalScreen(),
         const AdminEmployeesScreen(),
         const AdminReportsScreen(),
+        const AdminProfilScreen(),
       ],
     );
 
@@ -55,16 +105,19 @@ class _AdminShellState extends State<AdminShell> {
       backgroundColor: T.canvas,
       drawer: sempit
           ? Drawer(
-              width: 260,
+              width: 268,
               backgroundColor: T.card,
-              child: SafeArea(child: _Sidebar(
-                menuAktif: _menu,
-                items: _menuAdmin,
-                onPilih: (i) {
-                  setState(() => _menu = i);
-                  Navigator.of(context).pop();
-                },
-              )),
+              child: SafeArea(
+                child: _Sidebar(
+                  menuAktif: _menu,
+                  items: _menuAdmin,
+                  onPilih: (i) {
+                    _pindah(i);
+                    Navigator.of(context).pop();
+                  },
+                  onKeluar: _konfirmasiKeluar,
+                ),
+              ),
             )
           : null,
       body: Column(
@@ -72,6 +125,8 @@ class _AdminShellState extends State<AdminShell> {
           _TopBar(
             sempit: sempit,
             onMenu: () => _scaffoldKey.currentState?.openDrawer(),
+            onProfil: () => _pindah(6),
+            onKeluar: _konfirmasiKeluar,
           ),
           Expanded(
             child: Row(
@@ -84,14 +139,15 @@ class _AdminShellState extends State<AdminShell> {
                     child: _Sidebar(
                       menuAktif: _menu,
                       items: _menuAdmin,
-                      onPilih: (i) => setState(() => _menu = i),
+                      onPilih: _pindah,
+                      onKeluar: _konfirmasiKeluar,
                     ),
                   ),
                 Expanded(
                   child: Container(
                     decoration: const BoxDecoration(
-                      border: Border(
-                          left: BorderSide(color: Color(0xFFDFE5ED))),
+                      border:
+                          Border(left: BorderSide(color: Color(0xFFDFE5ED))),
                     ),
                     child: isi,
                   ),
@@ -107,13 +163,22 @@ class _AdminShellState extends State<AdminShell> {
 
 // ═══════════════════════════════════════════════════════════════
 class _TopBar extends StatelessWidget {
-  const _TopBar({required this.sempit, required this.onMenu});
+  const _TopBar({
+    required this.sempit,
+    required this.onMenu,
+    required this.onProfil,
+    required this.onKeluar,
+  });
 
   final bool sempit;
   final VoidCallback onMenu;
+  final VoidCallback onProfil;
+  final VoidCallback onKeluar;
 
   @override
   Widget build(BuildContext context) {
+    final admin = context.watch<AppState>().adminHC;
+
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -156,115 +221,64 @@ class _TopBar extends StatelessWidget {
           ),
           const Spacer(),
           if (!sempit) ...[
-            const Column(
+            Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text('HC Head',
-                    style: TextStyle(fontSize: 10.5, color: Color(0xFF96A2B5))),
-                SizedBox(height: 2),
-                Text('Bambang Santoso',
-                    style: TextStyle(
+                Text(admin.jabatan,
+                    style: const TextStyle(
+                        fontSize: 10.5, color: Color(0xFF96A2B5))),
+                const SizedBox(height: 2),
+                Text(admin.nama,
+                    style: const TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
                         color: Colors.white)),
               ],
             ),
             const SizedBox(width: 10),
-            PopupMenuButton<String>(
-              tooltip: 'Menu akun',
-              offset: const Offset(0, 44),
-              color: Colors.white,
-              shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(T.rMd)),
-              onSelected: (v) {
-                if (v == 'profil') {
-                  _tampilkanProfil(context);
-                } else if (v == 'keluar') {
-                  Navigator.of(context).popUntil((r) => r.isFirst);
-                }
-              },
-              itemBuilder: (_) => const [
-                PopupMenuItem(
-                  value: 'profil',
-                  child: Text('Profil Saya',
-                      style: TextStyle(fontSize: 13, color: T.text)),
-                ),
-                PopupMenuItem(
-                  value: 'keluar',
-                  child: Text('Kembali ke Aplikasi Karyawan',
-                      style: TextStyle(fontSize: 13, color: T.red)),
-                ),
-              ],
-              child: Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: T.navy,
-                  border: Border.all(color: const Color(0xFF5574AD), width: 2),
-                ),
-                alignment: Alignment.center,
-                child: const Text('BS',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white)),
+          ],
+          PopupMenuButton<String>(
+            tooltip: 'Menu akun',
+            offset: const Offset(0, 44),
+            color: Colors.white,
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(T.rMd)),
+            onSelected: (v) {
+              if (v == 'profil') {
+                onProfil();
+              } else if (v == 'keluar') {
+                onKeluar();
+              }
+            },
+            itemBuilder: (_) => const [
+              PopupMenuItem(
+                value: 'profil',
+                child: Text('Profil & Pengaturan',
+                    style: TextStyle(fontSize: 13, color: T.text)),
               ),
+              PopupMenuItem(
+                value: 'keluar',
+                child: Text('Keluar',
+                    style: TextStyle(fontSize: 13, color: T.red)),
+              ),
+            ],
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: T.navy,
+                border: Border.all(color: const Color(0xFF5574AD), width: 2),
+              ),
+              alignment: Alignment.center,
+              child: Text(admin.inisial,
+                  style: const TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white)),
             ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  void _tampilkanProfil(BuildContext context) {
-    showDialog<void>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(T.rLg)),
-        title: const Text('Profil Saya',
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.w800)),
-        content: const Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _BarisInfo(label: 'Nama Lengkap', nilai: 'Bambang Santoso'),
-            _BarisInfo(label: 'Jabatan', nilai: 'HC Head'),
-            _BarisInfo(label: 'Peran Akun', nilai: 'Administrator'),
-          ],
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('Tutup'),
           ),
-        ],
-      ),
-    );
-  }
-}
-
-class _BarisInfo extends StatelessWidget {
-  const _BarisInfo({required this.label, required this.nilai});
-
-  final String label;
-  final String nilai;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(label,
-              style: const TextStyle(fontSize: 11, color: T.textSecondary)),
-          const SizedBox(height: 3),
-          Text(nilai,
-              style: const TextStyle(
-                  fontSize: 13.5, fontWeight: FontWeight.w700)),
         ],
       ),
     );
@@ -277,15 +291,18 @@ class _Sidebar extends StatelessWidget {
     required this.menuAktif,
     required this.items,
     required this.onPilih,
+    required this.onKeluar,
   });
 
   final int menuAktif;
   final List<(IconData, String)> items;
   final ValueChanged<int> onPilih;
+  final VoidCallback onKeluar;
 
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
+
     return SingleChildScrollView(
       padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 12),
       child: Column(
@@ -332,13 +349,28 @@ class _Sidebar extends StatelessWidget {
                             ),
                           ),
                         ),
+                        if (i == 3 && app.totalMenungguPersetujuan > 0)
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: T.amberBg,
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: T.amberBorder),
+                            ),
+                            child: Text('${app.totalMenungguPersetujuan}',
+                                style: const TextStyle(
+                                    fontSize: 9.5,
+                                    fontWeight: FontWeight.w800,
+                                    color: T.amber)),
+                          ),
                       ],
                     ),
                   ),
                 ),
               ),
             ),
-          const SizedBox(height: 20),
+          const SizedBox(height: 18),
           Container(
             margin: const EdgeInsets.symmetric(horizontal: 4),
             padding: const EdgeInsets.all(12),
@@ -346,23 +378,23 @@ class _Sidebar extends StatelessWidget {
               color: T.greenBg,
               borderRadius: BorderRadius.circular(T.rMd),
             ),
-            child: const Row(
+            child: Row(
               children: [
-                Icon(Icons.circle, size: 9, color: Color(0xFF10B981)),
-                SizedBox(width: 8),
+                const Icon(Icons.circle, size: 9, color: Color(0xFF10B981)),
+                const SizedBox(width: 8),
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Sistem Online',
+                      const Text('Sistem Online',
                           style: TextStyle(
                               fontSize: 10.5,
                               fontWeight: FontWeight.w700,
                               color: T.green)),
-                      SizedBox(height: 2),
-                      Text('Sinkronisasi 2 menit lalu',
-                          style:
-                              TextStyle(fontSize: 9, color: Color(0xFF6C8C7D))),
+                      const SizedBox(height: 2),
+                      Text('${app.totalKaryawan} karyawan aktif',
+                          style: const TextStyle(
+                              fontSize: 9, color: Color(0xFF6C8C7D))),
                     ],
                   ),
                 ),
@@ -372,9 +404,16 @@ class _Sidebar extends StatelessWidget {
           const SizedBox(height: 12),
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8),
-            child: Text('${app.totalKaryawan} karyawan terdaftar',
-                style:
-                    const TextStyle(fontSize: 10, color: T.textMuted)),
+            child: TextButton.icon(
+              onPressed: onKeluar,
+              icon: const Icon(Icons.logout_rounded, size: 16, color: T.red),
+              label: const Text('Keluar',
+                  style: TextStyle(fontSize: 11.5, color: T.red)),
+              style: TextButton.styleFrom(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                minimumSize: const Size(0, 32),
+              ),
+            ),
           ),
         ],
       ),

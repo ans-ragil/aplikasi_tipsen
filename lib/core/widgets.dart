@@ -49,7 +49,10 @@ class AppButton extends StatelessWidget {
         backgroundColor: bg,
         disabledForegroundColor: T.textMuted,
         disabledBackgroundColor: bg.withValues(alpha: 0.45),
-        minimumSize: Size.fromHeight(height),
+        // Lebar minimum 0 (bukan Size.fromHeight yang berarti lebar tak
+        // hingga). Tanpa ini, tombol dengan expand:false tetap memaksa
+        // selebar induknya dan mendorong elemen lain ke baris baru.
+        minimumSize: Size(0, height),
         padding: const EdgeInsets.symmetric(horizontal: 18),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(T.rMd),

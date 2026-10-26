@@ -28,12 +28,19 @@
   <link rel="apple-touch-icon" href="icons/Icon-192.png">
 
   <!-- Favicon -->
+  <link rel="icon" type="image/svg+xml" href="favicon.svg"/>
   <link rel="icon" type="image/png" href="favicon.png"/>
+  <meta name="color-scheme" content="light">
 
   <title>TIPSEN — Presensi Online Karyawan</title>
   <link rel="manifest" href="manifest.json">
 </head>
-<body>
+<body style="margin:0;background:#F4F7FB;">
+  <div id="tipsen-splash" style="position:fixed;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;background:#F4F7FB;font-family:Inter,system-ui,-apple-system,'Segoe UI',sans-serif;">
+    <div style="width:66px;height:66px;border-radius:50%;background:#263858;display:flex;align-items:center;justify-content:center;color:#fff;font-size:32px;font-weight:800;box-shadow:0 10px 24px rgba(38,56,88,.28);">T</div>
+    <div style="font-size:15px;font-weight:800;letter-spacing:2px;color:#263858;">TIPSEN</div>
+    <div style="font-size:11.5px;color:#64748B;">Menyiapkan aplikasi presensi…</div>
+  </div>
   <!--
     You can customize the "flutter_bootstrap.js" script.
     This is useful to provide a custom configuration to the Flutter loader
@@ -43,5 +50,12 @@
     * https://docs.flutter.dev/platform-integration/web/initialization
   -->
   <script src="flutter_bootstrap.js" async></script>
+  <script>
+    // Sembunyikan splash bawaan setelah Flutter selesai memuat.
+    window.addEventListener('flutter-first-frame', function () {
+      var el = document.getElementById('tipsen-splash');
+      if (el) { el.style.transition = 'opacity .25s'; el.style.opacity = '0'; setTimeout(function () { el.remove(); }, 260); }
+    });
+  </script>
 </body>
 </html>

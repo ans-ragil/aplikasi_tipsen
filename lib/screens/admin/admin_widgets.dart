@@ -130,76 +130,90 @@ class AdminTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-      scrollDirection: Axis.horizontal,
-      child: ConstrainedBox(
-        constraints: BoxConstraints(minWidth: lebarMinimal),
-        child: Column(
-          children: [
-            // Header
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
-              decoration: BoxDecoration(
-                color: const Color(0xFFF7F9FB),
-                borderRadius: BorderRadius.circular(T.rSm),
-              ),
-              child: Row(
-                children: [
-                  for (var i = 0; i < kolom.length; i++)
-                    Expanded(
-                      flex: _flex[i],
-                      child: ClipRect(
-                        child: Text(
-                          kolom[i].toUpperCase(),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w800,
-                            letterSpacing: 0.4,
-                            color: T.textSecondary,
-                          ),
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-            ),
-            for (var r = 0; r < baris.length; r++)
-              Material(
-                color: Colors.transparent,
-                child: InkWell(
-                  onTap: onTapBaris == null ? null : () => onTapBaris!(r),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 14, vertical: 13),
-                    decoration: const BoxDecoration(
-                      border: Border(
-                          bottom: BorderSide(color: Color(0xFFEDF0F5))),
-                    ),
-                    child: Row(
-                      children: [
-                        for (var c = 0; c < baris[r].length; c++)
-                          Expanded(
-                            flex: c < _flex.length ? _flex[c] : 1,
-                            child: Padding(
-                              padding: const EdgeInsets.only(right: 10),
-                              child: ClipRect(
-                                child: Align(
-                                  alignment: Alignment.centerLeft,
-                                  child: baris[r][c],
-                                ),
+    // Tabel harus punya lebar PASTI. Bila hanya dibungkus
+    // SingleChildScrollView horizontal, Column di dalamnya memberi
+    // batas lebar tak-hingga ke baris, sehingga Expanded pada tiap kolom
+    // kolaps (di mode release kesalahannya tidak terlihat, hanya tabelnya
+    // yang jadi sempit dan tumpang tindih). LayoutBuilder + SizedBox
+    // memastikan lebar tabel = max(lebar kontainer, lebarMinimal).
+    return LayoutBuilder(
+      builder: (context, c) {
+        final lebarTabel = (c.maxWidth.isFinite && c.maxWidth > lebarMinimal)
+            ? c.maxWidth
+            : lebarMinimal;
+        return SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SizedBox(
+            width: lebarTabel,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // Header
+                Container(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFF7F9FB),
+                    borderRadius: BorderRadius.circular(T.rSm),
+                  ),
+                  child: Row(
+                    children: [
+                      for (var i = 0; i < kolom.length; i++)
+                        Expanded(
+                          flex: _flex[i],
+                          child: Padding(
+                            padding: const EdgeInsets.only(right: 10),
+                            child: Text(
+                              kolom[i].toUpperCase(),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: const TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                letterSpacing: 0.4,
+                                color: T.textSecondary,
                               ),
                             ),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
                 ),
-              ),
-          ],
-        ),
-      ),
+                for (var r = 0; r < baris.length; r++)
+                  Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      onTap: onTapBaris == null ? null : () => onTapBaris!(r),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 14, vertical: 13),
+                        decoration: const BoxDecoration(
+                          border: Border(
+                              bottom: BorderSide(color: Color(0xFFEDF0F5))),
+                        ),
+                        child: Row(
+                          children: [
+                            for (var c2 = 0; c2 < baris[r].length; c2++)
+                              Expanded(
+                                flex: c2 < _flex.length ? _flex[c2] : 1,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(right: 10),
+                                  child: Align(
+                                    alignment: Alignment.centerLeft,
+                                    child: baris[r][c2],
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 }

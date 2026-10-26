@@ -10,15 +10,13 @@ class DetailPresensiScreen extends StatelessWidget {
 
   final Presensi presensi;
 
+  /// Durasi kerja; bila belum Clock Out ditandai jelas agar tidak terkesan bug.
   String get _durasi {
-    final masuk = presensi.clockIn;
-    final pulang = presensi.clockOut;
-    if (masuk == null || pulang == null) return '—';
-    final m1 = int.parse(masuk.split(':')[0]) * 60 + int.parse(masuk.split(':')[1]);
-    final m2 = int.parse(pulang.split(':')[0]) * 60 + int.parse(pulang.split(':')[1]);
-    final d = m2 - m1;
-    if (d <= 0) return '—';
-    return '${d ~/ 60} jam ${d % 60} menit';
+    if (presensi.clockIn == null) return 'Belum Clock In';
+    if (presensi.clockOut == null) return 'Belum Clock Out';
+    final menit = presensi.durasiMenit;
+    if (menit == null) return 'Tidak valid';
+    return durasiLabel(menit);
   }
 
   @override
@@ -28,6 +26,7 @@ class DetailPresensiScreen extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Detail Presensi'),
         leading: IconButton(
+          tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back_rounded),
           onPressed: () => Navigator.of(context).pop(),
         ),

@@ -15,26 +15,52 @@ TIPSEN adalah aplikasi presensi online karyawan berbasis **Flutter** (mobile + w
 
 ## Teknologi
 
-| Komponen | Fungsi |
-|---|---|
-| Flutter + Dart | Aplikasi mobile dan web |
-| Firebase Authentication | Login email/password |
-| Cloud Firestore | Penyimpanan data (CRUD) |
-| Firebase Hosting | Versi web |
-| GitHub | Repositori & riwayat perubahan |
+| Komponen | Fungsi | Status |
+|---|---|---|
+| Flutter + Dart (Material 3) | Aplikasi web (Chrome) & mobile | ✅ dipakai |
+| `provider` | Manajemen state (`AppState`) | ✅ dipakai |
+| `camera` + `camera_web` | Selfie presensi dari kamera perangkat | ✅ dipakai |
+| `file_picker` | Unggah lampiran pengajuan (PDF/JPG/PNG) | ✅ dipakai |
+| `shared_preferences` | Penyimpanan lokal (data tahan refresh) | ✅ dipakai |
+| `google_fonts` (Inter) | Tipografi sesuai style guide | ✅ dipakai |
+| Firebase Authentication | Login email/password | ⏸ fase berikutnya |
+| Cloud Firestore | Penyimpanan data terpusat (CRUD) | ⏸ fase berikutnya |
+| Firebase Hosting | Publikasi versi web | ⏸ fase berikutnya |
+| GitHub | Repositori & riwayat perubahan | ✅ dipakai |
 
 > Catatan batasan proyek: tanpa billing account, Cloud Functions, OTP telepon,
-> maupun payment gateway. Seluruh data menggunakan simulasi.
+> maupun payment gateway. Versi saat ini menyimpan data di browser
+> (`localStorage`) agar dapat didemokan tanpa konfigurasi akun; struktur model
+> sudah ber-JSON sehingga siap dipindahkan ke Firestore.
+
+## Akun demo
+
+| Peran | Email | Kata sandi |
+|-------|-------|------------|
+| Karyawan | `anisa@tipsen.id` | `tipsen123` |
+| HC Admin | `bambang@tipsen.id` | `admin123` |
 
 ## Menjalankan project
 
 ```bash
 flutter pub get
-flutter run -d chrome   # versi web
-flutter run             # pilih emulator/device
+flutter run -d chrome   # versi web (pengembangan)
+
+# build rilis + pratinjau lokal
+flutter build web
+python -m http.server 8080 -d build/web
 ```
 
-## Rancangan
+> Kamera dan lokasi hanya aktif bila halaman dibuka di **tab Chrome langsung**,
+> bukan di dalam iframe pratinjau.
+
+## Rancangan & dokumentasi
+
+| Berkas | Isi |
+|---|---|
+| `PROGRES.md` | Status tiap fase, akun demo, hasil verifikasi otomatis |
+| `CATATAN-PERBAIKAN.md` | Audit 38 temuan + 9 temuan baru beserta akar masalah & perbaikannya |
+| `../design-figma/ANALISIS-DESAIN.md` | Analisis ekspor desain Figma Make |
 
 User flow, sitemap, wireframe, dan style guide tersedia pada modul minggu 1–4
 serta prototipe Figma "TIPSEN-App-Mockups".

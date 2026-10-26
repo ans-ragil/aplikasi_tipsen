@@ -181,20 +181,20 @@ class _SelfieCaptureState extends State<SelfieCapture> {
             const Icon(Icons.auto_awesome_rounded,
                 color: Color(0xFF34D399), size: 34),
             const SizedBox(height: 10),
-            const Text('Mode simulasi aktif',
+            const Text('Presensi tanpa kamera',
                 style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w700,
                     color: Colors.white)),
             const SizedBox(height: 4),
-            const Text('Presensi akan dicatat tanpa foto kamera asli.',
+            const Text('Foto tidak akan dilampirkan pada catatan presensi.',
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 11, color: Color(0xFF9EABC0))),
             const SizedBox(height: 12),
             TextButton(
               onPressed: () => widget.onFoto(null),
               style: TextButton.styleFrom(foregroundColor: Colors.white),
-              child: const Text('Batalkan simulasi',
+              child: const Text('Aktifkan kamera',
                   style: TextStyle(
                       fontSize: 11.5, fontWeight: FontWeight.w700)),
             ),
@@ -274,7 +274,7 @@ class _SelfieCaptureState extends State<SelfieCapture> {
                       textStyle: const TextStyle(
                           fontSize: 11.5, fontWeight: FontWeight.w700),
                     ),
-                    child: const Text('Gunakan mode simulasi'),
+                    child: const Text('Lanjut tanpa kamera'),
                   ),
               ],
             ),

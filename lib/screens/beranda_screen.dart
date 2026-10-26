@@ -5,11 +5,13 @@ import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../core/widgets.dart';
+import '../models/models.dart';
 import '../state/app_state.dart';
 import 'pengajuan_screen.dart';
 import 'shell_screen.dart';
 
-/// Halaman Beranda: hero jam real-time, ringkasan bulan, dan menu cepat.
+/// Halaman Beranda: hero jam real-time + status presensi hari ini,
+/// ringkasan bulan berjalan, dan menu cepat.
 class BerandaScreen extends StatefulWidget {
   const BerandaScreen({
     super.key,
@@ -44,27 +46,18 @@ class _BerandaScreenState extends State<BerandaScreen> {
     super.dispose();
   }
 
-  String _jamLabel(DateTime t) =>
-      '${t.hour.toString().padLeft(2, '0')}:'
-      '${t.minute.toString().padLeft(2, '0')}:'
-      '${t.second.toString().padLeft(2, '0')}';
-
-  String _tanggalLabel(DateTime t) {
-    const hari = ['Senin', 'Selasa', 'Rabu', 'Kamis', 'Jumat', 'Sabtu', 'Minggu'];
-    const bulan = [
-      '', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
-      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
-    ];
-    return '${hari[t.weekday - 1]}, ${t.day} ${bulan[t.month]} ${t.year}';
-  }
-
   @override
   Widget build(BuildContext context) {
     final app = context.watch<AppState>();
     final user = app.pengguna;
-    final jam = _jamLabel(_now);
+    final hariIni = app.presensiHariIni;
+    final bulan = DateTime(_now.year, _now.month);
 
-    // Teks status & aksi sesuai langkah presensi.
+    // Durasi berjalan sejak Clock In (bila belum Clock Out).
+    final menitBerjalan = hariIni?.clockIn == null
+        ? 0
+        : (_now.hour * 60 + _now.minute) - (menitDariJam(hariIni!.clockIn) ?? 0);
+
     final (statusTeks, labelTombol, ikonTombol) = switch (app.langkah) {
       LangkahPresensi.belumClockIn => (
           'Anda belum melakukan presensi hari ini',
@@ -72,12 +65,14 @@ class _BerandaScreenState extends State<BerandaScreen> {
           Icons.fingerprint_rounded
         ),
       LangkahPresensi.sudahClockIn => (
-          'Clock In tercatat pukul ${app.presensiHariIni?.clockIn ?? '-'} — jangan lupa Clock Out',
+          'Masuk ${hariIni?.clockIn} · durasi berjalan '
+              '${durasiLabel(menitBerjalan)}',
           'Clock Out Sekarang',
           Icons.logout_rounded
         ),
       LangkahPresensi.sudahClockOut => (
-          'Presensi hari ini lengkap. Terima kasih!',
+          'Masuk ${hariIni?.clockIn} · Pulang ${hariIni?.clockOut} · '
+              '${hariIni?.durasi ?? '—'}',
           'Lihat Riwayat Presensi',
           Icons.history_rounded
         ),
@@ -86,18 +81,18 @@ class _BerandaScreenState extends State<BerandaScreen> {
     return SafeArea(
       bottom: false,
       child: SingleChildScrollView(
-        padding: const EdgeInsets.fromLTRB(T.margin, 8, T.margin, 24),
+        padding: const EdgeInsets.fromLTRB(T.margin, 8, T.margin, 28),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── App bar: sapaan + avatar ─────────────────────
+            // ── Sapaan + avatar ──────────────────────────────
             Row(
               children: [
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Halo, ${_namaPertama(user.nama)} 👋',
+                      Text('Halo, ${user.nama.split(' ').first} 👋',
                           style: const TextStyle(
                               fontSize: 12, color: T.textSecondary)),
                       const SizedBox(height: 2),
@@ -129,7 +124,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ── Hero card: jam real-time ─────────────────────
+            // ── Hero: jam + status presensi ──────────────────
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -138,7 +133,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 borderRadius: BorderRadius.circular(T.rXl),
                 boxShadow: [
                   BoxShadow(
-                    color: T.navy.withValues(alpha: 0.35),
+                    color: T.navy.withValues(alpha: 0.32),
                     blurRadius: 22,
                     offset: const Offset(0, 10),
                   ),
@@ -149,14 +144,23 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      AppBadge(user.jadwal, tone: AppBadgeTone.onHero),
-                      Text(_tanggalLabel(_now),
-                          style: const TextStyle(
-                              fontSize: 11, color: Color(0xFFCBDCFF))),
+                      Flexible(
+                        child: AppBadge(user.jadwal,
+                            tone: AppBadgeTone.onHero),
+                      ),
+                      const SizedBox(width: 8),
+                      Flexible(
+                        child: Text(tanggalPanjang(_now),
+                            textAlign: TextAlign.right,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: const TextStyle(
+                                fontSize: 11, color: Color(0xFFCBDCFF))),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  Text(jam,
+                  Text(jamLengkap(_now),
                       style: const TextStyle(
                           fontSize: 40,
                           height: 1.1,
@@ -168,6 +172,19 @@ class _BerandaScreenState extends State<BerandaScreen> {
                       textAlign: TextAlign.center,
                       style: const TextStyle(
                           fontSize: 12, color: Color(0xFFDCE7FF))),
+                  if (hariIni != null && hariIni.clockOut == null) ...[
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(4),
+                      child: LinearProgressIndicator(
+                        value: (menitBerjalan / 540).clamp(0.0, 1.0),
+                        minHeight: 5,
+                        backgroundColor: Colors.white.withValues(alpha: 0.18),
+                        valueColor:
+                            const AlwaysStoppedAnimation(Color(0xFF7DD3A8)),
+                      ),
+                    ),
+                  ],
                   const SizedBox(height: 14),
                   _TombolHero(
                     label: labelTombol,
@@ -180,15 +197,22 @@ class _BerandaScreenState extends State<BerandaScreen> {
             const SizedBox(height: 20),
 
             // ── Ringkasan bulan ini ──────────────────────────
-            const SectionLabel('Ringkasan Bulan Ini'),
+            Row(
+              children: [
+                const Expanded(child: SectionLabel('Ringkasan Bulan Ini')),
+                Text(bulanTahun(bulan),
+                    style:
+                        const TextStyle(fontSize: 11, color: T.textMuted)),
+              ],
+            ),
             const SizedBox(height: 10),
             Row(
               children: [
                 Expanded(
                   child: StatCard(
                     label: 'Hadir',
-                    value: '${app.jumlahHadirBulanIni} hari',
-                    note: 'Presensi tercatat bulan ini',
+                    value: '${app.hadirBulan(bulan)} hari',
+                    note: '${app.terlambatBulan(bulan)} kali terlambat',
                     tone: StatTone.green,
                     onTap: () => widget.onBukaRiwayat(RiwayatFilter.hadir),
                   ),
@@ -197,13 +221,42 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 Expanded(
                   child: StatCard(
                     label: 'Izin / Cuti',
-                    value: '${app.jumlahIzinDisetujui} disetujui',
-                    note: '${app.jumlahMenunggu} pengajuan menunggu',
+                    value: '${app.izinDisetujuiBulanIni} disetujui',
+                    note: '${app.pengajuanMenunggu} pengajuan menunggu',
                     tone: StatTone.blue,
                     onTap: () => widget.onBukaRiwayat(RiwayatFilter.izin),
                   ),
                 ),
               ],
+            ),
+            const SizedBox(height: 10),
+            AppCard(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              child: Row(
+                children: [
+                  Container(
+                    width: 34,
+                    height: 34,
+                    decoration: BoxDecoration(
+                      color: T.amberBg,
+                      borderRadius: BorderRadius.circular(T.rMd),
+                    ),
+                    child: const Icon(Icons.timer_outlined,
+                        size: 18, color: T.amber),
+                  ),
+                  const SizedBox(width: 10),
+                  const Expanded(
+                    child: Text('Total jam kerja bulan ini',
+                        style: TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w600)),
+                  ),
+                  Text(durasiLabel(app.menitKerjaBulan(bulan)),
+                      style: const TextStyle(
+                          fontSize: 12.5,
+                          fontWeight: FontWeight.w800,
+                          color: T.navy)),
+                ],
+              ),
             ),
             const SizedBox(height: 20),
 
@@ -215,7 +268,7 @@ class _BerandaScreenState extends State<BerandaScreen> {
                 Expanded(
                   child: _MenuCepat(
                     ikon: Icons.fingerprint_rounded,
-                    judul: 'Presensi Kehadiran',
+                    judul: 'Presensi',
                     ket: 'Clock In / Out dengan\nselfie & lokasi',
                     onTap: widget.onBukaPresensi,
                   ),
@@ -227,10 +280,30 @@ class _BerandaScreenState extends State<BerandaScreen> {
                     judul: 'Pengajuan Izin',
                     ket: 'Ajukan cuti / izin\nsecara online',
                     onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (_) => const PengajuanScreen(),
-                      ),
+                      MaterialPageRoute(builder: (_) => const PengajuanScreen()),
                     ),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Expanded(
+                  child: _MenuCepat(
+                    ikon: Icons.history_rounded,
+                    judul: 'Riwayat',
+                    ket: 'Lihat catatan presensi\ndan status izin',
+                    onTap: () => widget.onBukaRiwayat(RiwayatFilter.semua),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MenuCepat(
+                    ikon: Icons.person_rounded,
+                    judul: 'Profil Saya',
+                    ket: 'Data akun, kata sandi,\ndan kebijakan privasi',
+                    onTap: widget.onBukaProfil,
                   ),
                 ),
               ],
@@ -251,8 +324,6 @@ class _BerandaScreenState extends State<BerandaScreen> {
         widget.onBukaRiwayat(RiwayatFilter.hadir);
     }
   }
-
-  String _namaPertama(String nama) => nama.split(' ').first;
 }
 
 /// Tombol putih di atas hero card (kontras dengan gradien navy).
@@ -273,8 +344,8 @@ class _TombolHero extends StatelessWidget {
         style: FilledButton.styleFrom(
           backgroundColor: Colors.white,
           foregroundColor: T.navy,
-          shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(T.rMd)),
+          shape:
+              RoundedRectangleBorder(borderRadius: BorderRadius.circular(T.rMd)),
           textStyle: const TextStyle(fontSize: 14, fontWeight: FontWeight.w800),
         ),
         child: Row(
@@ -282,7 +353,7 @@ class _TombolHero extends StatelessWidget {
           children: [
             Icon(ikon, size: 20),
             const SizedBox(width: 8),
-            Text(label),
+            Flexible(child: Text(label, overflow: TextOverflow.ellipsis)),
           ],
         ),
       ),
@@ -290,7 +361,7 @@ class _TombolHero extends StatelessWidget {
   }
 }
 
-/// Kartu menu cepat 2 kolom.
+/// Kartu menu cepat.
 class _MenuCepat extends StatelessWidget {
   const _MenuCepat({
     required this.ikon,
@@ -314,7 +385,7 @@ class _MenuCepat extends StatelessWidget {
         borderRadius: BorderRadius.circular(T.rLg),
         child: Container(
           padding: const EdgeInsets.all(14),
-          constraints: const BoxConstraints(minHeight: 120),
+          constraints: const BoxConstraints(minHeight: 116),
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(T.rLg),
             border: Border.all(color: T.border),
@@ -331,13 +402,14 @@ class _MenuCepat extends StatelessWidget {
                 ),
                 child: Icon(ikon, size: 19, color: T.accent),
               ),
-              const Spacer(),
+              const SizedBox(height: 10),
               Text(judul,
                   style: const TextStyle(
                       fontSize: 13, fontWeight: FontWeight.w700)),
               const SizedBox(height: 4),
               Text(ket,
-                  style: const TextStyle(fontSize: 11, color: T.textMuted, height: 1.4)),
+                  style: const TextStyle(
+                      fontSize: 11, color: T.textMuted, height: 1.4)),
             ],
           ),
         ),
