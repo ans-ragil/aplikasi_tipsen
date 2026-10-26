@@ -14,6 +14,10 @@ enum LangkahPresensi { belumClockIn, sudahClockIn, sudahClockOut }
 /// mengikuti rancangan koleksi Firestore (users / presensi / pengajuan_izin /
 /// config geofence) sehingga fase Firebase hanya menukar sumber datanya.
 class AppState extends ChangeNotifier {
+  AppState() {
+    _seedAdmin();
+  }
+
   // ── Sesi ─────────────────────────────────────────────────────
   SesiStatus sesi = SesiStatus.belumLogin;
 
@@ -167,6 +171,215 @@ class AppState extends ChangeNotifier {
 
   int get jumlahMenunggu =>
       pengajuan.where((p) => p.status == StatusPengajuan.menunggu).length;
+
+  // ════════════════════════════════════════════════════════════
+  // DATA & AKSI WEB ADMIN (HC PORTAL)
+  // ════════════════════════════════════════════════════════════
+  final List<KaryawanAdmin> _karyawanAdmin = [];
+  final List<BarisMonitoring> _monitoring = [];
+  final List<PengajuanIzin> _pengajuanMasuk = [];
+
+  List<KaryawanAdmin> get karyawanAdmin => List.unmodifiable(_karyawanAdmin);
+  List<BarisMonitoring> get monitoring => List.unmodifiable(_monitoring);
+  List<PengajuanIzin> get pengajuanMasuk => List.unmodifiable(_pengajuanMasuk);
+
+  int get totalKaryawan => _karyawanAdmin.length;
+  int get totalHadir =>
+      _monitoring.where((m) => m.status == StatusPresensi.hadir).length;
+  int get totalTerlambat =>
+      _monitoring.where((m) => m.status == StatusPresensi.terlambat).length;
+  int get totalWfh =>
+      _monitoring.where((m) => m.status == StatusPresensi.wfh).length;
+  int get totalMenungguPersetujuan => _pengajuanMasuk
+      .where((p) => p.status == StatusPengajuan.menunggu)
+      .length;
+
+  /// Persentase kehadiran (hadir + terlambat + wfh) terhadap total karyawan.
+  int get persenKehadiran {
+    if (_monitoring.isEmpty) return 0;
+    final hadir = _monitoring
+        .where((m) => m.status != StatusPresensi.izinDisetujui)
+        .length;
+    return ((hadir / _monitoring.length) * 100).round();
+  }
+
+  void aturRadius(int meter) {
+    geofence = geofence.copyWith(radiusMeter: meter);
+    notifyListeners();
+  }
+
+  void aturNamaKantor(String nama) {
+    geofence = geofence.copyWith(namaKantor: nama);
+    notifyListeners();
+  }
+
+  /// Setujui / tolak pengajuan pada daftar admin.
+  void putuskanPengajuan(String id, bool setujui) {
+    final i = _pengajuanMasuk.indexWhere((p) => p.id == id);
+    if (i < 0) return;
+    _pengajuanMasuk[i] = _pengajuanMasuk[i].copyWith(
+      status: setujui ? StatusPengajuan.disetujui : StatusPengajuan.ditolak,
+      diprosesOleh: 'Bambang Santoso (HC)',
+    );
+    notifyListeners();
+  }
+
+  void tambahKaryawan(KaryawanAdmin k) {
+    _karyawanAdmin.add(k);
+    notifyListeners();
+  }
+
+  void perbaruiKaryawan(int index, KaryawanAdmin k) {
+    if (index < 0 || index >= _karyawanAdmin.length) return;
+    _karyawanAdmin[index] = k;
+    notifyListeners();
+  }
+
+  void _seedAdmin() {
+    _karyawanAdmin.addAll(const [
+      KaryawanAdmin(
+        nama: 'Anisa Ragil Saputri',
+        jabatan: 'Mobile Developer',
+        departemen: 'Teknologi Informasi',
+        status: 'Aktif',
+        email: 'anisa@tipsen.id',
+      ),
+      KaryawanAdmin(
+        nama: 'Fajar Hidayat',
+        jabatan: 'UI/UX Designer',
+        departemen: 'Produk',
+        status: 'Aktif',
+        email: 'fajar@tipsen.id',
+      ),
+      KaryawanAdmin(
+        nama: 'Rizky Pratama',
+        jabatan: 'Backend Engineer',
+        departemen: 'Teknologi Informasi',
+        status: 'WFH',
+        email: 'rizky@tipsen.id',
+      ),
+      KaryawanAdmin(
+        nama: 'Nadia Salsabila',
+        jabatan: 'Quality Assurance',
+        departemen: 'Teknologi Informasi',
+        status: 'Aktif',
+        email: 'nadia@tipsen.id',
+      ),
+      KaryawanAdmin(
+        nama: 'Bagas Nugroho',
+        jabatan: 'Finance Staff',
+        departemen: 'Keuangan',
+        status: 'Aktif',
+        email: 'bagas@tipsen.id',
+      ),
+      KaryawanAdmin(
+        nama: 'Sinta Maharani',
+        jabatan: 'HR Generalist',
+        departemen: 'Human Capital',
+        status: 'Aktif',
+        email: 'sinta@tipsen.id',
+      ),
+    ]);
+
+    _monitoring.addAll(const [
+      BarisMonitoring(
+        nama: 'Anisa Ragil Saputri',
+        jabatan: 'Mobile Developer',
+        jamMasuk: '07:58',
+        jamPulang: '17:02',
+        lokasi: 'Kantor Utama TIPSEN',
+        status: StatusPresensi.hadir,
+        keterangan: 'Tepat waktu',
+        jarakMeter: 12,
+      ),
+      BarisMonitoring(
+        nama: 'Fajar Hidayat',
+        jabatan: 'UI/UX Designer',
+        jamMasuk: '08:01',
+        jamPulang: '17:00',
+        lokasi: 'Kantor Utama TIPSEN',
+        status: StatusPresensi.hadir,
+        keterangan: 'Tepat waktu',
+        jarakMeter: 25,
+      ),
+      BarisMonitoring(
+        nama: 'Rizky Pratama',
+        jabatan: 'Backend Engineer',
+        jamMasuk: '08:00',
+        jamPulang: '16:58',
+        lokasi: 'WFH — Jl. Pandanaran',
+        status: StatusPresensi.wfh,
+        keterangan: 'Di luar radius (8,2 km)',
+        jarakMeter: 8200,
+      ),
+      BarisMonitoring(
+        nama: 'Nadia Salsabila',
+        jabatan: 'Quality Assurance',
+        jamMasuk: '08:24',
+        jamPulang: '17:15',
+        lokasi: 'Kantor Utama TIPSEN',
+        status: StatusPresensi.terlambat,
+        keterangan: 'Terlambat 24 menit',
+        jarakMeter: 31,
+      ),
+      BarisMonitoring(
+        nama: 'Bagas Nugroho',
+        jabatan: 'Finance Staff',
+        jamMasuk: '07:45',
+        jamPulang: '17:05',
+        lokasi: 'Kantor Utama TIPSEN',
+        status: StatusPresensi.hadir,
+        keterangan: 'Tepat waktu',
+        jarakMeter: 8,
+      ),
+      BarisMonitoring(
+        nama: 'Sinta Maharani',
+        jabatan: 'HR Generalist',
+        jamMasuk: '—',
+        jamPulang: '—',
+        lokasi: '—',
+        status: StatusPresensi.izinDisetujui,
+        keterangan: 'Izin sakit (disetujui)',
+        jarakMeter: 0,
+      ),
+    ]);
+
+    final now = DateTime.now();
+    _pengajuanMasuk.addAll([
+      PengajuanIzin(
+        id: 'HC-1',
+        jenis: 'Cuti Tahunan',
+        tanggalMulai: now.add(const Duration(days: 3)),
+        tanggalSelesai: now.add(const Duration(days: 5)),
+        alasan: 'Liburan keluarga yang sudah direncanakan sejak awal tahun.',
+        status: StatusPengajuan.menunggu,
+        namaPemohon: 'Anisa Ragil Saputri',
+        jabatanPemohon: 'Mobile Developer',
+      ),
+      PengajuanIzin(
+        id: 'HC-2',
+        jenis: 'Izin Sakit',
+        tanggalMulai: now,
+        tanggalSelesai: now,
+        alasan: 'Demam dan sakit tenggorokan, disarankan istirahat oleh dokter.',
+        status: StatusPengajuan.menunggu,
+        lampiranNama: 'surat-dokter.pdf',
+        namaPemohon: 'Rizky Pratama',
+        jabatanPemohon: 'Backend Engineer',
+      ),
+      PengajuanIzin(
+        id: 'HC-3',
+        jenis: 'Izin Keperluan Pribadi',
+        tanggalMulai: now.subtract(const Duration(days: 2)),
+        tanggalSelesai: now.subtract(const Duration(days: 2)),
+        alasan: 'Mengurus dokumen kependudukan di kantor kelurahan.',
+        status: StatusPengajuan.disetujui,
+        diprosesOleh: 'Bambang Santoso (HC)',
+        namaPemohon: 'Nadia Salsabila',
+        jabatanPemohon: 'Quality Assurance',
+      ),
+    ]);
+  }
 
   // ════════════════════════════════════════════════════════════
   // DATA SIMULASI AWAL

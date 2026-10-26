@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../core/widgets.dart';
 import '../state/app_state.dart';
+import 'admin/admin_shell.dart';
 
 /// Halaman Login TIPSEN.
 /// Validasi inline (email format + wajib isi), toggle lihat sandi,
@@ -198,7 +199,18 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
+
+                  // ── Pintu masuk portal admin (demo) ─────────
+                  AppButton(
+                    label: 'Masuk sebagai HC Admin (Demo)',
+                    icon: Icons.admin_panel_settings_rounded,
+                    variant: AppButtonVariant.secondary,
+                    onPressed: () => Navigator.of(context).push(
+                      MaterialPageRoute(builder: (_) => const AdminShell()),
+                    ),
+                  ),
+                  const SizedBox(height: 20),
                   const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [

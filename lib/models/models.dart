@@ -144,6 +144,8 @@ class PengajuanIzin {
     required this.status,
     this.lampiranNama,
     this.diprosesOleh,
+    this.namaPemohon,
+    this.jabatanPemohon,
   });
 
   final String id;
@@ -154,6 +156,27 @@ class PengajuanIzin {
   final StatusPengajuan status;
   final String? lampiranNama;
   final String? diprosesOleh;
+
+  /// Diisi pada daftar pengajuan yang dilihat admin/HC.
+  final String? namaPemohon;
+  final String? jabatanPemohon;
+
+  PengajuanIzin copyWith({
+    StatusPengajuan? status,
+    String? diprosesOleh,
+  }) =>
+      PengajuanIzin(
+        id: id,
+        jenis: jenis,
+        tanggalMulai: tanggalMulai,
+        tanggalSelesai: tanggalSelesai,
+        alasan: alasan,
+        status: status ?? this.status,
+        lampiranNama: lampiranNama,
+        diprosesOleh: diprosesOleh ?? this.diprosesOleh,
+        namaPemohon: namaPemohon,
+        jabatanPemohon: jabatanPemohon,
+      );
 
   String get periodeLabel {
     const bulan = [
@@ -186,4 +209,85 @@ class KonfigurasiGeofence {
 
   String get koordinatLabel =>
       '${latitude.toStringAsFixed(6)} , ${longitude.toStringAsFixed(6)}';
+
+  KonfigurasiGeofence copyWith({String? namaKantor, int? radiusMeter}) =>
+      KonfigurasiGeofence(
+        namaKantor: namaKantor ?? this.namaKantor,
+        latitude: latitude,
+        longitude: longitude,
+        radiusMeter: radiusMeter ?? this.radiusMeter,
+      );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// MODEL KHUSUS WEB ADMIN (HC Portal)
+// ═══════════════════════════════════════════════════════════════
+
+/// Karyawan pada daftar Manajemen Karyawan (admin).
+class KaryawanAdmin {
+  const KaryawanAdmin({
+    required this.nama,
+    required this.jabatan,
+    required this.departemen,
+    required this.status,
+    required this.email,
+  });
+
+  final String nama;
+  final String jabatan;
+  final String departemen;
+
+  /// "Aktif" atau "WFH".
+  final String status;
+  final String email;
+
+  String get inisial {
+    final p = nama.trim().split(RegExp(r'\s+'));
+    if (p.length == 1) return p.first.substring(0, 2).toUpperCase();
+    return (p.first[0] + p[1][0]).toUpperCase();
+  }
+
+  KaryawanAdmin copyWith({
+    String? nama,
+    String? jabatan,
+    String? departemen,
+    String? status,
+    String? email,
+  }) =>
+      KaryawanAdmin(
+        nama: nama ?? this.nama,
+        jabatan: jabatan ?? this.jabatan,
+        departemen: departemen ?? this.departemen,
+        status: status ?? this.status,
+        email: email ?? this.email,
+      );
+}
+
+/// Satu baris tabel Monitoring Presensi.
+class BarisMonitoring {
+  const BarisMonitoring({
+    required this.nama,
+    required this.jabatan,
+    required this.jamMasuk,
+    required this.jamPulang,
+    required this.lokasi,
+    required this.status,
+    required this.keterangan,
+    required this.jarakMeter,
+  });
+
+  final String nama;
+  final String jabatan;
+  final String jamMasuk;
+  final String jamPulang;
+  final String lokasi;
+  final StatusPresensi status;
+  final String keterangan;
+  final int jarakMeter;
+
+  String get inisial {
+    final p = nama.trim().split(RegExp(r'\s+'));
+    if (p.length == 1) return p.first.substring(0, 2).toUpperCase();
+    return (p.first[0] + p[1][0]).toUpperCase();
+  }
 }
