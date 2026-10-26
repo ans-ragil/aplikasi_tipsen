@@ -53,14 +53,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen> {
         // ── Statistik hari ini ──────────────────────────────
         LayoutBuilder(
           builder: (context, c) {
-            final kolom = c.maxWidth > 1000 ? 4 : (c.maxWidth > 620 ? 2 : 1);
-            return GridView.count(
-              crossAxisCount: kolom,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: kolom == 1 ? 3.4 : 1.9,
+            final kolom = c.maxWidth > 1000 ? 4 : (c.maxWidth > 500 ? 2 : 1);
+            return AdminGrid(
+              kolom: kolom,
               children: [
                 StatCard(
                   label: 'Total Karyawan',

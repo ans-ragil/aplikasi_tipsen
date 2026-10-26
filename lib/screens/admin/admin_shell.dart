@@ -188,6 +188,7 @@ class _TopBar extends StatelessWidget {
           if (sempit)
             IconButton(
               onPressed: onMenu,
+              tooltip: 'Buka menu',
               icon: const Icon(Icons.menu_rounded, color: Colors.white),
             ),
           Container(

@@ -32,10 +32,14 @@ bisa dibuka dengan server statis apa pun.
 | 9 | Verifikasi | `flutter analyze` bersih + `flutter build web` sukses | ✅ Selesai |
 | 11 | Web Admin | 7 halaman HC Portal (termasuk Profil & Pengaturan) | ✅ Selesai |
 | 13 | Audit menyeluruh | 38 catatan + 9 temuan baru → semua diperbaiki & diuji E2E | ✅ Selesai |
+| 14 | Audit responsif tablet | 600/900/1200 px → 4 masalah tata letak diperbaiki | ✅ Selesai |
+| 15 | Persiapan Firebase | `firebase.json`, `firestore.rules`, index, `PANDUAN-FIREBASE.md` | ✅ Selesai |
 | 10 | Firebase | Auth email/password + Firestore — **butuh kredensial project Firebase Anda** | ⏸ Menunggu user |
 | 12 | Deploy | Firebase Hosting + repo GitHub remote — **butuh akun/CLI login** | ⏸ Menunggu user |
 
 > Rincian lengkap 47 perbaikan (bukti + akar masalah) ada di **`CATATAN-PERBAIKAN.md`**.
+> Panduan memakai aplikasi (untuk demo/sidang): **`PANDUAN-PENGGUNAAN.md`**.
+> Panduan fase Firebase langkah demi langkah: **`PANDUAN-FIREBASE.md`**.
 
 ## Akun demo
 
@@ -88,7 +92,7 @@ Akses: halaman Login → tombol **"Masuk sebagai HC Admin (Demo)"**.
 4. **Riwayat** — pilih periode bulan (bottom sheet), filter Semua/Hadir/Izin,
    klik item untuk Detail Presensi, dan **Unduh Riwayat (CSV)**.
 5. **Pengajuan Izin** — pilih tanggal, tulis alasan, **unggah lampiran asli**
-   (PDF/JPG/PNG maks 1 MB, bisa Ganti/Hapus), lalu Kirim.
+   (PDF/JPG/PNG maks 700 KB, bisa Ganti/Hapus), lalu Kirim.
 6. **Profil** — Ubah Kata Sandi, Bantuan & Kebijakan Privasi, Tentang Aplikasi,
    dan Keluar Akun.
 7. **Portal HC** — Dashboard, Monitoring, Live Tracking & Geofence,
@@ -114,6 +118,22 @@ Pengujian dijalankan dengan Chrome headless + Playwright pada lebar
 | Reload halaman → sesi & data tetap | ✅ |
 | Logout (karyawan & HC) dengan konfirmasi | ✅ |
 | Error runtime di console browser | **0** |
+
+
+## Audit responsif tablet (26 Okt 2026, lanjutan)
+
+Pengujian ulang pada lebar **600 / 900 / 1200 px** untuk kedua POV menemukan
+4 masalah tata letak yang tidak terlihat di ukuran ponsel maupun desktop lebar:
+
+| # | Masalah | Akar masalah | Perbaikan |
+|---|---|---|---|
+| 1 | Kartu statistik Dashboard & Laporan jadi sangat tinggi dan berongga di 900–1100 px | `GridView.count` dengan `childAspectRatio` — tinggi kartu ikut lebar layar | Widget baru `AdminGrid`: lebar dibagi rata, tinggi mengikuti isi, sel satu baris disamakan tinggi (`IntrinsicHeight`) |
+| 2 | Tabel Monitoring terpotong di kanan pada 600 px (kolom "Lokasi" & "Aksi" hilang) | Tabel 7 kolom butuh 900 px, hanya bisa digeser horizontal | Di bawah 760 px otomatis berganti ke **daftar kartu** (nama, badge status, masuk/pulang/durasi, lokasi, tombol Detail) |
+| 3 | Tabel Rekap Laporan sama terpotong | idem | idem — kartu rekap dengan badge persentase + bar kehadiran |
+| 4 | Tombol menu (☰) portal HC tanpa label aksesibilitas | `IconButton` tanpa `tooltip` | Ditambah `tooltip: 'Buka menu'` |
+
+Setelah perbaikan: **0 error runtime** pada ketiga lebar, seluruh halaman HC
+tetap terbaca tanpa geser horizontal.
 
 
 ## Berkas kode utama
@@ -182,24 +202,48 @@ lib/
 
 ## Langkah yang butuh tindakan Anda (fase 10 & 12)
 
-Fase 10 (Firebase) dan 12 (deploy) tidak bisa saya kerjakan tanpa akses akun Anda.
-Urutan yang disarankan:
+Fase 10 (Firebase) dan 12 (deploy) tidak bisa dikerjakan tanpa akses akun Anda.
+**Semua berkas konfigurasi sudah disiapkan**, jadi tinggal membuat project lalu
+menjalankan perintah. Panduan lengkap langkah demi langkah:
+**`PANDUAN-FIREBASE.md`**.
 
-1. **Buat project Firebase** (paket Spark/gratis) di console.firebase.google.com →
-   tambahkan app **Web**, lalu aktifkan:
+Berkas yang sudah siap di repo:
+
+| Berkas | Fungsi |
+|---|---|
+| `firebase.json` | Hosting `build/web`, rewrite SPA, header cache, rujukan rules |
+| `firestore.rules` | Aturan keamanan (karyawan vs HC) — siap `firebase deploy` |
+| `firestore.indexes.json` | 4 composite index untuk query presensi & pengajuan |
+| `.firebaserc.example` | Salin jadi `.firebaserc` lalu isi project id |
+| `PANDUAN-FIREBASE.md` | 10 langkah + peta migrasi kode + troubleshooting |
+
+Urutan singkat:
+
+1. **Buat project Firebase** (paket Spark/gratis) → tambahkan app **Web**:
    - Authentication → Sign-in method → **Email/Password**
-   - Firestore Database → buat database (mode uji coba)
+   - Firestore Database → **Production mode**, lokasi `asia-southeast2`
 2. **Hubungkan ke project Flutter**:
    ```bash
    dart pub global activate flutterfire_cli
-   flutterfire configure
+   flutterfire configure --project=<project-id>
+   flutter pub add firebase_core firebase_auth cloud_firestore
    ```
-   (pilih project Firebase yang baru dibuat, platform web/android)
-3. **Buat repo GitHub** kosong bernama `aplikasi-tipsen`, lalu:
+3. **Deploy aturan & index**:
+   ```bash
+   firebase login
+   cp .firebaserc.example .firebaserc   # isi project id
+   firebase deploy --only firestore:rules,firestore:indexes
+   ```
+4. **Buat repo GitHub** kosong bernama `aplikasi-tipsen`, lalu:
    ```bash
    git remote add origin https://github.com/<username>/aplikasi-tipsen.git
    git push -u origin main
    ```
-4. Beri tahu saya setelah langkah 1–2 selesai → saya lanjutkan kode Auth + Firestore
-   (mengganti data simulasi) dan deploy ke Firebase Hosting.
+5. Beri tahu saya setelah langkah 1–2 selesai → saya lanjutkan kode Auth +
+   Firestore (mengganti penyimpanan lokal) dan deploy ke Firebase Hosting.
+
+> **Catatan lampiran:** Firebase Storage untuk project baru mewajibkan plan
+> Blaze (butuh billing account), jadi lampiran **tidak** memakai Storage.
+> Lampiran disimpan sebagai `base64` di dalam dokumen pengajuan. Karena batas
+> dokumen Firestore 1 MiB, batas unggah sudah diturunkan ke **700 KB**.
 

@@ -106,14 +106,9 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
         // ── Ringkasan ───────────────────────────────────────
         LayoutBuilder(
           builder: (context, c) {
-            final kolom = c.maxWidth > 900 ? 3 : 1;
-            return GridView.count(
-              crossAxisCount: kolom,
-              shrinkWrap: true,
-              physics: const NeverScrollableScrollPhysics(),
-              crossAxisSpacing: 12,
-              mainAxisSpacing: 12,
-              childAspectRatio: kolom == 1 ? 3.6 : 2.4,
+            final kolom = c.maxWidth > 900 ? 3 : (c.maxWidth > 480 ? 2 : 1);
+            return AdminGrid(
+              kolom: kolom,
               children: [
                 StatCard(
                   label: 'Total Kehadiran',
@@ -158,7 +153,24 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                             fontSize: 11.5, color: T.textSecondary)),
                   ),
                 )
-              : AdminTable(
+              : LayoutBuilder(
+                  builder: (context, c) {
+                    // Layar sempit: 7 kolom tidak terbaca → pakai kartu.
+                    if (c.maxWidth < 760) {
+                      return Column(
+                        children: [
+                          for (var i = 0; i < data.length; i++) ...[
+                            if (i > 0) const SizedBox(height: 10),
+                            _KartuRekap(
+                              r: data[i],
+                              inisial: _inisial(data[i].nama),
+                              onDetail: () => _bukaDetail(context, data[i]),
+                            ),
+                          ],
+                        ],
+                      );
+                    }
+                    return AdminTable(
                   lebarMinimal: 880,
                   flex: const [3, 1, 1, 1, 2, 1, 1],
                   kolom: const [
@@ -197,6 +209,8 @@ class _AdminReportsScreenState extends State<AdminReportsScreen> {
                         ),
                       ],
                   ],
+                    );
+                  },
                 ),
         ),
       ],
@@ -404,6 +418,104 @@ class _Kotak extends StatelessWidget {
           Text(nilai,
               style: TextStyle(
                   fontSize: 13, fontWeight: FontWeight.w800, color: warna)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Kartu rekap untuk layar sempit (< 760 px) — pengganti tabel 7 kolom.
+class _KartuRekap extends StatelessWidget {
+  const _KartuRekap({
+    required this.r,
+    required this.inisial,
+    required this.onDetail,
+  });
+
+  final RekapKaryawan r;
+  final String inisial;
+  final VoidCallback onDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    final tone = r.persen >= 95
+        ? AppBadgeTone.green
+        : (r.persen >= 80 ? AppBadgeTone.amber : AppBadgeTone.red);
+
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: T.card,
+        borderRadius: BorderRadius.circular(T.rMd),
+        border: Border.all(color: T.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: AdminEmployeeCell(
+                  inisial: inisial,
+                  nama: r.nama,
+                  subjudul: '${r.jabatan} · ${r.departemen}',
+                ),
+              ),
+              const SizedBox(width: 8),
+              AppBadge('${r.persen}%', tone: tone),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _SelRekap(label: 'Hadir', nilai: '${r.hadir}'),
+              _SelRekap(label: 'Terlambat', nilai: '${r.terlambat}'),
+              _SelRekap(label: 'Izin / WFH', nilai: '${r.izin} / ${r.wfh}'),
+              _SelRekap(label: 'Rata durasi', nilai: r.rataDurasi),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Expanded(child: _BarKehadiran(persen: r.persen)),
+              const SizedBox(width: 12),
+              AdminTextAction(label: 'Detail', onTap: onDetail),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SelRekap extends StatelessWidget {
+  const _SelRekap({required this.label, required this.nilai});
+
+  final String label;
+  final String nilai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                  color: T.textMuted)),
+          const SizedBox(height: 2),
+          Text(nilai,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: T.text)),
         ],
       ),
     );

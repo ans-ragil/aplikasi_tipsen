@@ -391,3 +391,54 @@ Future<R?> showAdminDialog<R>(
     ),
   );
 }
+
+/// Grid responsif tanpa `childAspectRatio`.
+///
+/// `GridView.count` dengan aspect ratio membuat tinggi kartu ikut melebar
+/// mengikuti lebar layar — di layar 900–1100 px kartu statistik jadi sangat
+/// tinggi dan berongga. Grid ini menyusun baris manual: lebar dibagi rata,
+/// tinggi mengikuti isi, dan semua sel dalam satu baris disamakan tingginya.
+class AdminGrid extends StatelessWidget {
+  const AdminGrid({
+    super.key,
+    required this.children,
+    this.kolom = 2,
+    this.jarak = 12,
+  });
+
+  final List<Widget> children;
+  final int kolom;
+  final double jarak;
+
+  @override
+  Widget build(BuildContext context) {
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    final baris = <Widget>[];
+    for (var i = 0; i < children.length; i += kolom) {
+      final sel = <Widget>[];
+      for (var j = i; j < i + kolom; j++) {
+        if (j > i) sel.add(SizedBox(width: jarak));
+        sel.add(
+          Expanded(
+            child: j < children.length ? children[j] : const SizedBox(),
+          ),
+        );
+      }
+      baris.add(
+        Padding(
+          padding: EdgeInsets.only(
+            bottom: i + kolom < children.length ? jarak : 0,
+          ),
+          child: IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: sel,
+            ),
+          ),
+        ),
+      );
+    }
+    return Column(mainAxisSize: MainAxisSize.min, children: baris);
+  }
+}

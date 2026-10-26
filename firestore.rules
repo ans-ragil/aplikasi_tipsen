@@ -1,0 +1,123 @@
+rules_version = '2';
+
+// ═══════════════════════════════════════════════════════════════════════
+// TIPSEN — Aturan keamanan Cloud Firestore
+//
+// Prinsip:
+//   1. Tanpa login  → tidak boleh baca/tulis apa pun.
+//   2. Karyawan     → hanya data miliknya sendiri; tidak bisa mengubah
+//                     hasil keputusan HC, tidak bisa mengubah jam masuk.
+//   3. Admin HC     → boleh membaca semua data organisasi & memutuskan
+//                     pengajuan, tetapi tidak bisa memalsukan presensi
+//                     orang lain (create presensi tetap hanya untuk diri).
+//
+// Kode peran  : 'karyawan' | 'admin'
+// Status izin : 'menunggu' | 'disetujui' | 'ditolak'
+// Status hadir: 'hadir' | 'terlambat' | 'wfh' | 'izinDisetujui'
+// ═══════════════════════════════════════════════════════════════════════
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Pembantu ───────────────────────────────────────────────────────
+    function masuk() {
+      return request.auth != null;
+    }
+
+    // Dibaca dari dokumen users/{uid}. Biaya 1 read, tetapi hasilnya
+    // di-cache oleh SDK selama satu sesi permintaan.
+    function profil() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function peran() {
+      return masuk() ? profil().peran : '';
+    }
+
+    function hc() {
+      return masuk() && peran() == 'admin';
+    }
+
+    function milikSendiri() {
+      return masuk() && request.auth.uid == resource.data.uid;
+    }
+
+    // ── users ──────────────────────────────────────────────────────────
+    // Karyawan boleh melihat profilnya sendiri; HC melihat semua.
+    // Hanya HC yang boleh membuat / mengubah / menghapus akun.
+    match /users/{uid} {
+      allow read: if masuk() && (request.auth.uid == uid || hc());
+      allow create, update, delete: if hc();
+    }
+
+    // ── presensi ───────────────────────────────────────────────────────
+    // Satu dokumen = satu hari kerja seorang karyawan.
+    match /presensi/{id} {
+      allow read: if masuk() && (resource.data.uid == request.auth.uid || hc());
+
+      // Clock In: hanya untuk diri sendiri, status awal tidak boleh
+      // langsung "disetujui" atau bernilai karangan.
+      allow create: if masuk()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status in ['hadir', 'terlambat', 'wfh', 'izinDisetujui']
+        && request.resource.data.clockOut == null;
+
+      // Clock Out: hanya menambah jam pulang. Jam masuk, tanggal, dan
+      // status tidak boleh diubah agar durasi kerja tidak bisa dipalsukan.
+      allow update: if masuk()
+        && resource.data.uid == request.auth.uid
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.tanggal == resource.data.tanggal
+        && request.resource.data.clockIn == resource.data.clockIn
+        && request.resource.data.status == resource.data.status
+        && resource.data.clockOut == null;
+
+      // Koreksi/penghapusan data presensi adalah wewenang HC.
+      allow delete: if hc();
+    }
+
+    // ── pengajuan_izin ─────────────────────────────────────────────────
+    match /pengajuan_izin/{id} {
+      allow read: if masuk() && (resource.data.uid == request.auth.uid || hc());
+
+      // Karyawan mengajukan untuk dirinya sendiri, status wajib 'menunggu'.
+      allow create: if masuk()
+        && request.resource.data.uid == request.auth.uid
+        && request.resource.data.status == 'menunggu'
+        && request.resource.data.alasan is string
+        && request.resource.data.alasan.size() >= 10
+        && request.resource.data.jenis is string
+        && request.resource.data.tanggalMulai is timestamp
+        && request.resource.data.tanggalSelesai is timestamp;
+
+      // HC memutuskan (setujui / tolak + alasan penolakan).
+      allow update: if hc();
+
+      // Pemohon hanya boleh menarik pengajuannya sendiri yang masih
+      // menunggu — tidak boleh mengubah isi atau status menjadi disetujui.
+      allow update: if masuk()
+        && resource.data.uid == request.auth.uid
+        && resource.data.status == 'menunggu'
+        && request.resource.data.status == 'menunggu'
+        && request.resource.data.uid == resource.data.uid
+        && request.resource.data.alasan == resource.data.alasan
+        && request.resource.data.tanggalMulai == resource.data.tanggalMulai
+        && request.resource.data.tanggalSelesai == resource.data.tanggalSelesai;
+
+      allow delete: if hc();
+    }
+
+    // ── config ─────────────────────────────────────────────────────────
+    // Pengaturan geofence & jam kerja: semua boleh baca (dibutuhkan untuk
+    // validasi radius saat Clock In), hanya HC yang boleh mengubah.
+    match /config/{dokumen} {
+      allow read: if masuk();
+      allow write: if hc();
+    }
+
+    // ── Tolak sisanya ──────────────────────────────────────────────────
+    match /{dokumen=**} {
+      allow read, write: if false;
+    }
+  }
+}

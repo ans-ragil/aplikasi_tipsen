@@ -8,7 +8,9 @@ import '../core/widgets.dart';
 import '../models/models.dart';
 import '../state/app_state.dart';
 
-const _maksUkuranLampiran = 1024 * 1024; // 1 MB
+/// Lampiran disimpan bersama dokumen pengajuan. Batas Firestore 1 MiB per
+/// dokumen, sedangkan base64 membengkak ±33% → aman di 700 KB.
+const _maksUkuranLampiran = 700 * 1024; // 700 KB
 const _ekstensiDiizinkan = ['pdf', 'jpg', 'jpeg', 'png'];
 
 /// Form pengajuan izin/cuti (halaman turunan dari Beranda).
@@ -87,7 +89,7 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
         setState(() => _mengunggah = false);
         showToast(
             context,
-            'Ukuran berkas ${ukuranFile(ukuran)} melebihi batas 1 MB.',
+            'Ukuran berkas ${ukuranFile(ukuran)} melebihi batas 700 KB.',
             ToastKind.error);
         return;
       }
@@ -352,7 +354,7 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
                                       ),
                                       const SizedBox(height: 2),
                                       const Text(
-                                        'PDF, JPG, atau PNG · maksimal 1 MB',
+                                        'PDF, JPG, atau PNG · maksimal 700 KB',
                                         style: TextStyle(
                                             fontSize: 10.5, color: T.accent),
                                       ),

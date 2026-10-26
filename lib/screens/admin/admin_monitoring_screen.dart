@@ -131,7 +131,14 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
                   ),
                 )
               else
-                AdminTable(
+                LayoutBuilder(
+                  builder: (context, c) {
+                    // Di layar sempit tabel 7 kolom tidak terbaca — ganti
+                    // menjadi daftar kartu agar tidak perlu geser horizontal.
+                    if (c.maxWidth < 760) {
+                      return _DaftarKartu(data: data, onDetail: _bukaDetail);
+                    }
+                    return AdminTable(
                   lebarMinimal: 900,
                   flex: const [3, 1, 1, 1, 2, 2, 1],
                   kolom: const [
@@ -180,6 +187,8 @@ class _AdminMonitoringScreenState extends State<AdminMonitoringScreen> {
                         ),
                       ],
                   ],
+                    );
+                  },
                 ),
             ],
           ),
@@ -403,6 +412,130 @@ class _BarisDetail extends StatelessWidget {
                 style: const TextStyle(
                     fontSize: 11.5, fontWeight: FontWeight.w700)),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+/// Tampilan alternatif tabel untuk layar sempit (< 760 px).
+class _DaftarKartu extends StatelessWidget {
+  const _DaftarKartu({required this.data, required this.onDetail});
+
+  final List<BarisMonitoring> data;
+  final void Function(BuildContext, BarisMonitoring) onDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        for (var i = 0; i < data.length; i++) ...[
+          if (i > 0) const SizedBox(height: 10),
+          _KartuBaris(
+            m: data[i],
+            onDetail: () => onDetail(context, data[i]),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
+class _KartuBaris extends StatelessWidget {
+  const _KartuBaris({required this.m, required this.onDetail});
+
+  final BarisMonitoring m;
+  final VoidCallback onDetail;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: T.card,
+        borderRadius: BorderRadius.circular(T.rMd),
+        border: Border.all(color: T.border),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: AdminEmployeeCell(
+                  inisial: m.inisial,
+                  nama: m.nama,
+                  subjudul: m.jabatan,
+                ),
+              ),
+              const SizedBox(width: 8),
+              AppBadge(
+                m.status.label,
+                tone: switch (m.status) {
+                  StatusPresensi.hadir => AppBadgeTone.green,
+                  StatusPresensi.terlambat => AppBadgeTone.amber,
+                  StatusPresensi.wfh => AppBadgeTone.blue,
+                  StatusPresensi.izinDisetujui => AppBadgeTone.slate,
+                },
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              _Sel(label: 'Masuk', nilai: m.jamMasuk),
+              _Sel(label: 'Pulang', nilai: m.jamPulang),
+              _Sel(label: 'Durasi', nilai: m.durasi),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              const Icon(Icons.place_outlined, size: 13, color: T.textMuted),
+              const SizedBox(width: 4),
+              Expanded(
+                child: Text(
+                  '${m.lokasi} · ${m.jarakMeter} m',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 11, color: T.textSecondary),
+                ),
+              ),
+              AdminTextAction(label: 'Detail', onTap: onDetail),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _Sel extends StatelessWidget {
+  const _Sel({required this.label, required this.nilai});
+
+  final String label;
+  final String nilai;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(label,
+              style: const TextStyle(
+                  fontSize: 10,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.3,
+                  color: T.textMuted)),
+          const SizedBox(height: 2),
+          Text(nilai,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w700,
+                  color: T.text)),
         ],
       ),
     );

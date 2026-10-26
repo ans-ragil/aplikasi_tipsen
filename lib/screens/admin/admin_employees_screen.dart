@@ -103,13 +103,8 @@ class _AdminEmployeesScreenState extends State<AdminEmployeesScreen> {
                     final kolom = c.maxWidth > 1080
                         ? 3
                         : (c.maxWidth > 720 ? 2 : 1);
-                    return GridView.count(
-                      crossAxisCount: kolom,
-                      shrinkWrap: true,
-                      physics: const NeverScrollableScrollPhysics(),
-                      crossAxisSpacing: 12,
-                      mainAxisSpacing: 12,
-                      childAspectRatio: kolom == 1 ? 3.6 : 2.35,
+                    return AdminGrid(
+                      kolom: kolom,
                       children: [
                         for (final k in data)
                           _KartuKaryawan(

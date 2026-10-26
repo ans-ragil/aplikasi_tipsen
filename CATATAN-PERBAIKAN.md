@@ -178,3 +178,51 @@ Akun demo:
 
 > Catatan: kamera & lokasi memerlukan **tab Chrome sungguhan** (bukan iframe pratinjau) agar izin perangkat bisa diberikan.
 
+
+---
+
+## 5. Putaran lanjutan — audit responsif tablet (26 Okt 2026)
+
+Pengujian pada lebar **600 / 900 / 1200 px** (sebelumnya hanya 420 / 900 / 1440)
+menemukan empat masalah yang tidak terlihat di ukuran ponsel maupun desktop lebar.
+
+| # | Gejala | Akar masalah | Perbaikan |
+|---|---|---|---|
+| 48 | Kartu statistik Dashboard & Laporan menjadi sangat tinggi (±220 px) dan berongga di 900–1100 px | `GridView.count` + `childAspectRatio`: tinggi sel dihitung dari lebar layar, sehingga kartu ikut melar | Widget baru `AdminGrid` — lebar dibagi rata, tinggi mengikuti isi, dan semua sel dalam satu baris disamakan tingginya lewat `IntrinsicHeight` |
+| 49 | Tabel Monitoring terpotong di kanan pada 600 px; kolom "Lokasi" dan "Aksi" tidak terlihat | Tabel 7 kolom butuh ≥ 900 px dan hanya bisa digeser horizontal tanpa penanda | Di bawah 760 px otomatis berganti menjadi **daftar kartu**: nama + jabatan, badge status, tiga sel (masuk / pulang / durasi), lokasi + jarak, tombol Detail |
+| 50 | Tabel Rekap Laporan juga terpotong pada lebar yang sama | idem | idem — kartu rekap dengan badge persentase kehadiran + bar |
+| 51 | Tombol menu (☰) portal HC tidak punya label aksesibilitas | `IconButton` tanpa `tooltip` | `tooltip: 'Buka menu'` |
+
+**Ambang kolom yang dipakai sekarang**
+
+| Halaman | ≥ 1000 px | 500–1000 px | < 500 px |
+|---|---|---|---|
+| Dashboard | 4 kolom | 2 kolom | 1 kolom |
+| Laporan | 3 kolom (≥ 900) | 2 kolom | 1 kolom |
+| Manajemen Karyawan | 3 kolom (≥ 1080) | 2 kolom (≥ 720) | 1 kolom |
+
+Tabel Monitoring dan Rekap Laporan berganti ke kartu di bawah **760 px**;
+panel Persetujuan dan Tracking sudah menumpuk vertikal di bawah **980 px**.
+
+Hasil akhir: **0 error runtime** pada ketiga lebar, tidak ada lagi teks terpotong.
+
+---
+
+## 6. Persiapan fase 10 (Firebase) — belum dijalankan
+
+Fase ini masih menunggu project Firebase milik pemilik aplikasi, tetapi seluruh
+berkas konfigurasi sudah disiapkan agar tinggal satu perintah:
+
+| Berkas | Isi |
+|---|---|
+| `firebase.json` | Hosting `build/web`, rewrite SPA, header cache (service worker `no-cache`), rujukan rules |
+| `firestore.rules` | Aturan keamanan: karyawan hanya data sendiri, HC semua; jam masuk & status tidak bisa diubah karyawan |
+| `firestore.indexes.json` | 4 composite index (presensi per uid+tanggal, pengajuan per uid/status + diajukanPada) |
+| `.firebaserc.example` | Salin menjadi `.firebaserc` lalu isi project id |
+| `PANDUAN-FIREBASE.md` | 10 langkah + peta migrasi method `AppState` → Firestore + troubleshooting |
+
+Satu keputusan teknis yang berubah: **batas lampiran diturunkan dari 1 MB ke
+700 KB**. Firebase Storage untuk project baru mewajibkan plan Blaze (billing
+account), sehingga lampiran disimpan sebagai `base64` di dalam dokumen
+pengajuan; karena batas satu dokumen Firestore 1 MiB dan base64 membengkak
+±33%, 700 KB adalah batas aman.
