@@ -56,13 +56,29 @@ python -m http.server 8080 -d build/web
 
 ## Tampilan Aplikasi
 
+### Aplikasi Karyawan
+
 | | |
 |---|---|
-| ![Beranda](docs/beranda.png) | ![Form Pengajuan](docs/pengajuan-form.png) |
+| ![Beranda](docs/beranda.png) | ![Presensi](docs/presensi.png) |
+| ![Riwayat](docs/riwayat.png) | ![Form Pengajuan](docs/pengajuan-form.png) |
+
+### Portal HC (Admin)
+
+| |
+|---|
+| ![Dashboard HC](docs/admin-dashboard.png) |
+
+### Form Pengajuan — Validasi dan Status
+
+| | |
+|---|---|
 | ![Validasi form](docs/pengajuan-validasi.png) | ![Pengajuan berhasil](docs/pengajuan-berhasil.png) |
 
 - **Beranda** — ringkasan presensi hari ini dan akses cepat.
-- **Form Pengajuan** — pengajuan izin/cuti dengan jenis, rentang tanggal, alasan, dan lampiran.
+- **Presensi** — Clock In / Clock Out dengan validasi GPS geofence dan selfie.
+- **Riwayat** — daftar presensi dan pengajuan dengan filter periode.
+- **Form Pengajuan** — jenis, rentang tanggal, alasan, dan lampiran.
 - **Validasi** — pesan kesalahan jelas per kolom saat data tidak lengkap/salah.
 - **Berhasil** — data valid tersimpan, muncul di Riwayat dan Persetujuan HC.
 
