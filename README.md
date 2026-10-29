@@ -54,6 +54,18 @@ python -m http.server 8080 -d build/web
 > Kamera dan lokasi hanya aktif bila halaman dibuka di **tab Chrome langsung**,
 > bukan di dalam iframe pratinjau.
 
+## Tampilan Aplikasi
+
+| | |
+|---|---|
+| ![Beranda](docs/beranda.png) | ![Form Pengajuan](docs/pengajuan-form.png) |
+| ![Validasi form](docs/pengajuan-validasi.png) | ![Pengajuan berhasil](docs/pengajuan-berhasil.png) |
+
+- **Beranda** — ringkasan presensi hari ini dan akses cepat.
+- **Form Pengajuan** — pengajuan izin/cuti dengan jenis, rentang tanggal, alasan, dan lampiran.
+- **Validasi** — pesan kesalahan jelas per kolom saat data tidak lengkap/salah.
+- **Berhasil** — data valid tersimpan, muncul di Riwayat dan Persetujuan HC.
+
 ## Rancangan & dokumentasi
 
 | Berkas | Isi |
