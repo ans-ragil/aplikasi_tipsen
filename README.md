@@ -6,6 +6,11 @@ Mahasiswa: Anisa Ragil Saputri — NIM 23.01.55.0009 — Kelas A1/A2DLC.
 TIPSEN adalah aplikasi presensi online karyawan berbasis **Flutter** (mobile + web) dengan
 **Firebase** (Authentication email/password, Cloud Firestore, Hosting).
 
+> **Desain & wireframe (Figma):** [TIPSEN-App-Mockups](https://www.figma.com/make/lO24y140BTgqTk4yQcynmk/TIPSEN-App-Mockups)
+>
+> **Proposal UTS:** [docs/PROPOSAL-UTS.md](docs/PROPOSAL-UTS.md) — problem statement, persona,
+> user story, kebutuhan fungsional, user flow, sitemap, tech stack, dan rancangan database Firestore.
+
 ## Fitur inti (MVP)
 
 - **Clock In / Clock Out** dengan validasi lokasi (GPS geofence) dan selfie
