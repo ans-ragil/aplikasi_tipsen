@@ -20,31 +20,55 @@ class LoginScreen extends StatefulWidget {
 
 class _LoginScreenState extends State<LoginScreen> {
   final _formKey = GlobalKey<FormState>();
+  final _namaC = TextEditingController();
   final _emailC = TextEditingController();
   final _sandiC = TextEditingController();
+  final _ulangC = TextEditingController();
 
   bool _lihatSandi = false;
+  bool _modeDaftar = false;
+  bool _sedangProses = false;
   String? _error;
 
   @override
   void dispose() {
+    _namaC.dispose();
     _emailC.dispose();
     _sandiC.dispose();
+    _ulangC.dispose();
     super.dispose();
   }
 
-  void _masuk() {
+  Future<void> _masuk() async {
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
+    setState(() => _sedangProses = true);
     final app = context.read<AppState>();
-    final pesan = app.masuk(_emailC.text, _sandiC.text);
+    final pesan = await app.masuk(_emailC.text, _sandiC.text);
+    if (!mounted) return;
+    setState(() => _sedangProses = false);
     if (pesan != null) {
       setState(() => _error = pesan);
       return;
     }
     // Toast selamat datang ditampilkan oleh shell tujuan (ShellScreen /
-    // AdminShell) setelah frame pertama, supaya muncul di dalam frame
-    // aplikasi dan tidak menutupi navigasi bawah.
+    // AdminShell) setelah frame pertama; halaman berganti otomatis lewat
+    // authStateChanges (cek status login).
+  }
+
+  Future<void> _daftar() async {
+    setState(() => _error = null);
+    if (!_formKey.currentState!.validate()) return;
+    setState(() => _sedangProses = true);
+    final app = context.read<AppState>();
+    final pesan =
+        await app.daftar(_namaC.text, _emailC.text, _sandiC.text);
+    if (!mounted) return;
+    setState(() => _sedangProses = false);
+    if (pesan != null) {
+      setState(() => _error = pesan);
+      return;
+    }
   }
 
   Future<void> _lupaSandi() async {
@@ -61,8 +85,8 @@ class _LoginScreenState extends State<LoginScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Masukkan email terdaftar. Sistem akan mengirim tautan atur ulang '
-              'kata sandi melalui HC Admin.',
+              'Masukkan email terdaftar. Tautan atur ulang kata sandi akan '
+              'dikirim melalui email.',
               style: TextStyle(fontSize: 12.5, color: T.textSecondary, height: 1.5),
             ),
             const SizedBox(height: 14),
@@ -98,20 +122,21 @@ class _LoginScreenState extends State<LoginScreen> {
     );
     c.dispose();
     if (email == null || email.trim().isEmpty || !mounted) return;
-    final err = context.read<AppState>().resetSandi(email);
+    final err = await context.read<AppState>().resetSandi(email);
     if (!mounted) return;
     showToast(
       context,
       err ??
-          'Permintaan atur ulang dikirim ke HC Admin. Ikuti instruksi pada '
-              'email ${email.trim()}.',
+          'Jika email terdaftar, tautan atur ulang kata sandi sudah dikirim '
+              'ke ${email.trim()}. Periksa kotak masuk Anda.',
       err == null ? ToastKind.success : ToastKind.error,
     );
   }
 
-  void _masukAdmin() {
+  Future<void> _masukAdmin() async {
     final app = context.read<AppState>();
-    final pesan = app.masuk(AppState.emailAdmin, AppState.sandiAdmin);
+    final pesan = await app.masuk(AppState.emailAdmin, AppState.sandiAdmin);
+    if (!mounted) return;
     if (pesan != null) {
       showToast(context, pesan, ToastKind.error);
       return;
@@ -225,12 +250,35 @@ class _LoginScreenState extends State<LoginScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            const Text('Masuk ke Akun Anda',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            Text(_modeDaftar ? 'Daftar Akun Baru' : 'Masuk ke Akun Anda',
+                style: const TextStyle(
+                    fontSize: 18, fontWeight: FontWeight.w800)),
             const SizedBox(height: 4),
-            const Text('Gunakan email karyawan yang terdaftar.',
-                style: TextStyle(fontSize: 12, color: T.textSecondary)),
+            Text(
+                _modeDaftar
+                    ? 'Buat akun simulasi untuk mencoba TIPSEN.'
+                    : 'Gunakan email karyawan yang terdaftar.',
+                style:
+                    const TextStyle(fontSize: 12, color: T.textSecondary)),
             const SizedBox(height: 20),
+            if (_modeDaftar) ...[
+              TextFormField(
+                controller: _namaC,
+                textInputAction: TextInputAction.next,
+                decoration: const InputDecoration(
+                  labelText: 'Nama Lengkap',
+                  hintText: 'Nama Anda',
+                  prefixIcon: Icon(Icons.person_outline_rounded,
+                      size: 19, color: T.textMuted),
+                ),
+                style: const TextStyle(fontSize: 14),
+                validator: (v) {
+                  if ((v ?? '').trim().isEmpty) return 'Nama wajib diisi.';
+                  return null;
+                },
+              ),
+              const SizedBox(height: 12),
+            ],
             TextFormField(
               controller: _emailC,
               keyboardType: TextInputType.emailAddress,
@@ -256,11 +304,13 @@ class _LoginScreenState extends State<LoginScreen> {
             TextFormField(
               controller: _sandiC,
               obscureText: !_lihatSandi,
-              textInputAction: TextInputAction.done,
-              onFieldSubmitted: (_) => _masuk(),
+              textInputAction:
+                  _modeDaftar ? TextInputAction.next : TextInputAction.done,
+              onFieldSubmitted: (_) =>
+                  _modeDaftar ? null : _masuk(),
               decoration: InputDecoration(
                 labelText: 'Kata Sandi',
-                hintText: '••••••••',
+                hintText: _modeDaftar ? 'Minimal 6 karakter' : '••••••••',
                 prefixIcon: const Icon(Icons.lock_outline_rounded,
                     size: 19, color: T.textMuted),
                 suffixIcon: IconButton(
@@ -284,20 +334,42 @@ class _LoginScreenState extends State<LoginScreen> {
                 return null;
               },
             ),
-            const SizedBox(height: 6),
-            Align(
-              alignment: Alignment.centerRight,
-              child: TextButton(
-                onPressed: _lupaSandi,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  minimumSize: const Size(0, 34),
-                  textStyle: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w700),
+            if (_modeDaftar) ...[
+              const SizedBox(height: 12),
+              TextFormField(
+                controller: _ulangC,
+                obscureText: !_lihatSandi,
+                textInputAction: TextInputAction.done,
+                onFieldSubmitted: (_) => _daftar(),
+                decoration: const InputDecoration(
+                  labelText: 'Ulangi Kata Sandi',
+                  hintText: 'Sama dengan kata sandi di atas',
+                  prefixIcon: Icon(Icons.lock_reset_outlined,
+                      size: 19, color: T.textMuted),
                 ),
-                child: const Text('Lupa kata sandi?'),
+                style: const TextStyle(fontSize: 14),
+                validator: (v) {
+                  if ((v ?? '').isEmpty) return 'Ulangi kata sandi.';
+                  if (v != _sandiC.text) return 'Kata sandi tidak sama.';
+                  return null;
+                },
               ),
-            ),
+            ] else ...[
+              const SizedBox(height: 6),
+              Align(
+                alignment: Alignment.centerRight,
+                child: TextButton(
+                  onPressed: _lupaSandi,
+                  style: TextButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(horizontal: 4),
+                    minimumSize: const Size(0, 34),
+                    textStyle: const TextStyle(
+                        fontSize: 12, fontWeight: FontWeight.w700),
+                  ),
+                  child: const Text('Lupa kata sandi?'),
+                ),
+              ),
+            ],
             if (_error != null) ...[
               Container(
                 padding: const EdgeInsets.all(11),
@@ -325,26 +397,39 @@ class _LoginScreenState extends State<LoginScreen> {
               const SizedBox(height: 10),
             ],
             AppButton(
-              label: 'Masuk Sekarang',
-              icon: Icons.login_rounded,
-              onPressed: _masuk,
+              label: _sedangProses
+                  ? 'Memproses…'
+                  : (_modeDaftar ? 'Daftar Sekarang' : 'Masuk Sekarang'),
+              icon: _modeDaftar
+                  ? Icons.person_add_rounded
+                  : Icons.login_rounded,
+              onPressed: _sedangProses
+                  ? null
+                  : (_modeDaftar ? _daftar : _masuk),
             ),
             const SizedBox(height: 12),
             Wrap(
               alignment: WrapAlignment.center,
               crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                const Text('Belum punya akses?',
-                    style: TextStyle(fontSize: 11.5, color: T.textSecondary)),
+                Text(
+                    _modeDaftar
+                        ? 'Sudah punya akun?'
+                        : 'Belum punya akses?',
+                    style: const TextStyle(
+                        fontSize: 11.5, color: T.textSecondary)),
                 const SizedBox(width: 4),
                 GestureDetector(
-                  onTap: () => showToast(
-                      context,
-                      'Ajukan pembuatan akun ke HC Admin melalui '
-                          'email hc@tipsen.id.',
-                      ToastKind.info),
-                  child: const Text('Hubungi HC Admin',
-                      style: TextStyle(
+                  onTap: _sedangProses
+                      ? null
+                      : () => setState(() {
+                            _modeDaftar = !_modeDaftar;
+                            _error = null;
+                            _formKey.currentState?.reset();
+                          }),
+                  child: Text(
+                      _modeDaftar ? 'Masuk' : 'Daftar Akun',
+                      style: const TextStyle(
                           fontSize: 11.5,
                           fontWeight: FontWeight.w700,
                           color: T.accent)),

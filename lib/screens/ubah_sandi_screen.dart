@@ -44,12 +44,12 @@ class _UbahSandiScreenState extends State<UbahSandiScreen> {
     return skor.clamp(0, 4);
   }
 
-  void _simpan() {
+  Future<void> _simpan() async {
     setState(() => _error = null);
     if (!_formKey.currentState!.validate()) return;
-    final pesan = context
-        .read<AppState>()
-        .ubahSandi(_lamaC.text, _baruC.text);
+    final pesan =
+        await context.read<AppState>().ubahSandi(_lamaC.text, _baruC.text);
+    if (!mounted) return;
     if (pesan != null) {
       setState(() => _error = pesan);
       return;

@@ -2,10 +2,12 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
+import '../utils/validasi_auth.dart';
 
 /// Keadaan sesi pengguna.
 enum SesiStatus { belumLogin, sudahLogin }
@@ -68,10 +70,10 @@ class AppState extends ChangeNotifier {
   }
 
   static const _kunciSimpan = 'tipsen.data.v2';
-  static const _kunciSesi = 'tipsen.sesi.v2';
   static const _kunciFoto = 'tipsen.foto.v1';
 
   SharedPreferences? _prefs;
+  StreamSubscription<User?>? _langgananAuth;
   bool siap = false;
 
   // ── Akun demo ────────────────────────────────────────────────
@@ -80,7 +82,14 @@ class AppState extends ChangeNotifier {
   static const emailAdmin = 'bambang@tipsen.id';
   static const sandiAdmin = 'admin123';
 
-  final Map<String, String> _sandi = {
+  /// Peran ditentukan dari email. Minggu 10 peran dipindahkan ke
+  /// dokumen `users/{uid}` di Firestore.
+  static bool _adalahAdmin(String email) =>
+      email.trim().toLowerCase() == emailAdmin;
+
+  /// Cadangan kredensial demo HANYA untuk lingkungan uji widget, ketika
+  /// Firebase belum terinisialisasi (lihat test/widget_test.dart).
+  static const Map<String, String> _sandiDemo = {
     emailKaryawan: sandiKaryawan,
     emailAdmin: sandiAdmin,
   };
@@ -204,18 +213,6 @@ class AppState extends ChangeNotifier {
       if (mentah != null) {
         _pulihkan(jsonDecode(mentah) as Map<String, dynamic>);
       }
-      final sesiTersimpan = _prefs!.getString(_kunciSesi);
-      if (sesiTersimpan != null) {
-        final email = sesiTersimpan;
-        if (email == emailAdmin) {
-          peran = PeranAkun.adminHC;
-          sesi = SesiStatus.sudahLogin;
-        } else if (_sandi.containsKey(email)) {
-          _pengguna = _pengguna.copyWithEmail(email);
-          peran = PeranAkun.karyawan;
-          sesi = SesiStatus.sudahLogin;
-        }
-      }
       final fotoTersimpan = _prefs!.getString(_kunciFoto);
       if (fotoTersimpan != null) {
         final m = jsonDecode(fotoTersimpan) as Map<String, dynamic>;
@@ -226,6 +223,37 @@ class AppState extends ChangeNotifier {
       }
     } catch (_) {
       // Penyimpanan tidak tersedia — aplikasi tetap berjalan dengan data awal.
+    }
+
+    // Sesi login diserahkan ke Firebase (authStateChanges). Sesi bertahan
+    // setelah browser di-refresh tanpa penyimpanan lokal (Latihan 3).
+    try {
+      _langgananAuth = FirebaseAuth.instance
+          .authStateChanges()
+          .listen(_terimaPenggunaAuth);
+    } catch (_) {
+      // Firebase tidak tersedia (mis. widget test) — langsung siap.
+      siap = true;
+      notifyListeners();
+    }
+  }
+
+  /// Sinkronkan status sesi dengan pengguna Firebase yang sedang login.
+  void _terimaPenggunaAuth(User? pengguna) {
+    if (pengguna == null) {
+      sesi = SesiStatus.belumLogin;
+      peran = PeranAkun.karyawan;
+    } else {
+      final email = pengguna.email ?? '';
+      _pengguna = _pengguna.copyWithEmail(email);
+      if (_adalahAdmin(email)) {
+        peran = PeranAkun.adminHC;
+      } else {
+        peran = PeranAkun.karyawan;
+      }
+      sesi = SesiStatus.sudahLogin;
+      fotoSelfie = null;
+      selfieSimulasi = false;
     }
     siap = true;
     notifyListeners();
@@ -251,7 +279,6 @@ class AppState extends ChangeNotifier {
           'karyawan': [for (final k in _karyawan) k.toJson()],
           'presensiOrg': [for (final b in _presensiOrg) b.toJson()],
           'geofence': geofence.toJson(),
-          'sandi': _sandi,
           'notifikasi': notifikasiAktif,
           'seq': _seq,
         };
@@ -271,15 +298,10 @@ class AppState extends ChangeNotifier {
     unawaited(tulis(bangun(denganFoto: true)));
   }
 
-  void _simpanSesi() {
-    final prefs = _prefs;
-    if (prefs == null) return;
-    if (sesi == SesiStatus.belumLogin) {
-      unawaited(prefs.remove(_kunciSesi));
-    } else {
-      unawaited(prefs.setString(
-          _kunciSesi, peran == PeranAkun.adminHC ? emailAdmin : _pengguna.email));
-    }
+  @override
+  void dispose() {
+    _langgananAuth?.cancel();
+    super.dispose();
   }
 
   void _pulihkan(Map<String, dynamic> j) {
@@ -303,43 +325,83 @@ class AppState extends ChangeNotifier {
       geofence = KonfigurasiGeofence.fromJson(
           j['geofence'] as Map<String, dynamic>);
     }
-    if (j['sandi'] != null) {
-      (j['sandi'] as Map<String, dynamic>)
-          .forEach((k, v) => _sandi[k] = v as String);
-    }
     notifikasiAktif = j['notifikasi'] as bool? ?? true;
     _seq = (j['seq'] as num?)?.toInt() ?? 500;
     if (_karyawan.isEmpty || _riwayat.isEmpty) _seed();
   }
 
   // ════════════════════════════════════════════════════════════
-  // SESI
+  // SESI — Firebase Authentication (Minggu 9)
   // ════════════════════════════════════════════════════════════
   /// Login. Mengembalikan pesan kesalahan, atau null bila berhasil.
-  String? masuk(String email, String sandi) {
-    final e = email.trim().toLowerCase();
-    if (!_sandi.containsKey(e)) {
+  Future<String?> masuk(String email, String sandi) async {
+    final e = email.trim();
+    try {
+      await FirebaseAuth.instance
+          .signInWithEmailAndPassword(email: e, password: sandi);
+      // Pergantian halaman dilakukan otomatis oleh listener authStateChanges.
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return pesanKesalahanAuth(e.code);
+    } catch (_) {
+      // Firebase tidak tersedia (mis. widget test) — cadangan kredensial demo.
+      return _masukDemo(e, sandi);
+    }
+  }
+
+  /// Daftar akun baru (mode Daftar pada halaman masuk).
+  Future<String?> daftar(String nama, String email, String sandi) async {
+    final e = email.trim();
+    try {
+      await FirebaseAuth.instance
+          .createUserWithEmailAndPassword(email: e, password: sandi);
+      _pengguna = Karyawan(
+        id: 'TIP-${_seq++}',
+        nama: nama.trim(),
+        jabatan: 'Karyawan',
+        departemen: 'Belum diatur oleh HC',
+        email: e,
+        jadwal: 'Shift Pagi · 08:00 – 17:00',
+        peran: PeranAkun.karyawan,
+      );
+      // Pergantian halaman dilakukan otomatis oleh listener authStateChanges.
+      return null;
+    } on FirebaseAuthException catch (e) {
+      return pesanKesalahanAuth(e.code);
+    } catch (_) {
+      return 'Terjadi kesalahan. Silakan coba lagi.';
+    }
+  }
+
+  /// Cadangan login demo ketika Firebase tidak terinisialisasi (widget test).
+  String? _masukDemo(String email, String sandi) {
+    final e = email.toLowerCase();
+    if (!_sandiDemo.containsKey(e)) {
       return 'Email belum terdaftar. Gunakan akun demo yang tertera di bawah.';
     }
-    if (_sandi[e] != sandi) {
+    if (_sandiDemo[e] != sandi) {
       return 'Kata sandi salah. Periksa kembali atau gunakan akun demo.';
     }
-    if (e == emailAdmin) {
+    if (_adalahAdmin(e)) {
       peran = PeranAkun.adminHC;
-      _pengguna = _pengguna.copyWithEmail(e);
     } else {
       peran = PeranAkun.karyawan;
-      _pengguna = _pengguna.copyWithEmail(e);
     }
+    _pengguna = _pengguna.copyWithEmail(e);
     sesi = SesiStatus.sudahLogin;
     fotoSelfie = null;
     selfieSimulasi = false;
-    _simpanSesi();
     notifyListeners();
     return null;
   }
 
-  void keluar() {
+  /// Keluar dari sesi Firebase, lalu kembali ke halaman masuk.
+  Future<void> keluar() async {
+    try {
+      await FirebaseAuth.instance.signOut();
+    } catch (_) {
+      // Tanpa Firebase (mis. widget test) — langsung reset status lokal.
+    }
     sesi = SesiStatus.belumLogin;
     peran = PeranAkun.karyawan;
     fotoSelfie = null;
@@ -347,27 +409,50 @@ class AppState extends ChangeNotifier {
     lokasiDiizinkan = false;
     dalamRadius = true;
     jarakMeter = 12;
-    _simpanSesi();
     notifyListeners();
   }
 
   /// Ubah kata sandi. Mengembalikan pesan kesalahan, atau null bila berhasil.
-  String? ubahSandi(String lama, String baru) {
-    final email = peran == PeranAkun.adminHC ? emailAdmin : _pengguna.email;
-    if (_sandi[email] != lama) return 'Kata sandi saat ini tidak sesuai.';
+  Future<String?> ubahSandi(String lama, String baru) async {
     if (baru.length < 6) return 'Kata sandi baru minimal 6 karakter.';
     if (baru == lama) return 'Kata sandi baru harus berbeda dari yang lama.';
-    _sandi[email] = baru;
-    _simpan();
-    notifyListeners();
-    return null;
+    final pengguna = FirebaseAuth.instance.currentUser;
+    if (pengguna == null) return 'Belum masuk.';
+    try {
+      // Firebase menuntut login ulang sebelum mengubah kata sandi.
+      final kredensial =
+          EmailAuthProvider.credential(email: pengguna.email ?? '', password: lama);
+      await pengguna.reauthenticateWithCredential(kredensial);
+      await pengguna.updatePassword(baru);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'invalid-credential' || e.code == 'wrong-password') {
+        return 'Kata sandi saat ini tidak sesuai.';
+      }
+      return pesanKesalahanAuth(e.code);
+    } catch (_) {
+      return 'Terjadi kesalahan. Silakan coba lagi.';
+    }
   }
 
-  /// Reset kata sandi (alur "lupa kata sandi") — hanya untuk akun terdaftar.
-  String? resetSandi(String email) {
-    final e = email.trim().toLowerCase();
-    if (!_sandi.containsKey(e)) return 'Email tidak terdaftar pada sistem TIPSEN.';
-    return null;
+  /// Kirim email atur ulang kata sandi (alur "lupa kata sandi").
+  ///
+  /// Untuk melindungi privasi, kesalahan "email tidak terdaftar" tetap
+  /// diperlakukan berhasil — penerima tidak diberi tahu email mana yang
+  /// terdaftar (perlindungan enumerasi email).
+  Future<String?> resetSandi(String email) async {
+    final e = email.trim();
+    try {
+      await FirebaseAuth.instance.sendPasswordResetEmail(email: e);
+      return null;
+    } on FirebaseAuthException catch (e) {
+      if (e.code == 'user-not-found' || e.code == 'invalid-email') {
+        return null; // Tetap sukses agar email tidak bisa ditebak.
+      }
+      return pesanKesalahanAuth(e.code);
+    } catch (_) {
+      return 'Terjadi kesalahan. Silakan coba lagi.';
+    }
   }
 
   // ════════════════════════════════════════════════════════════
