@@ -98,6 +98,11 @@ class AppState extends ChangeNotifier {
   SesiStatus sesi = SesiStatus.belumLogin;
   PeranAkun peran = PeranAkun.karyawan;
 
+  /// Penanda sesi BARU saja dibuat lewat masuk/daftar (bukan pulih dari
+  /// refresh). Dipakai shell untuk menampilkan toast "Login berhasil"
+  /// tepat satu kali, lalu dikembalikan ke false.
+  bool loginBaru = false;
+
   Karyawan _pengguna = const Karyawan(
     id: 'TIP-2301',
     nama: 'Anisa Ragil Saputri',
@@ -107,6 +112,10 @@ class AppState extends ChangeNotifier {
     jadwal: 'Shift Pagi · 08:00 – 17:00',
     peran: PeranAkun.karyawan,
   );
+
+  /// Profil hasil daftar yang menunggu event authStateChanges masuk, supaya
+  /// nama lengkap dari form daftar tidak tertimpa profil bawaan.
+  Karyawan? _profilTunda;
 
   Karyawan get pengguna => _pengguna;
 
@@ -245,7 +254,10 @@ class AppState extends ChangeNotifier {
       peran = PeranAkun.karyawan;
     } else {
       final email = pengguna.email ?? '';
-      _pengguna = _pengguna.copyWithEmail(email);
+      // Pakai profil hasil daftar bila ada, agar nama dari form tidak hilang.
+      final tunda = _profilTunda;
+      _profilTunda = null;
+      _pengguna = tunda ?? _pengguna.copyWithEmail(email);
       if (_adalahAdmin(email)) {
         peran = PeranAkun.adminHC;
       } else {
@@ -339,6 +351,7 @@ class AppState extends ChangeNotifier {
     try {
       await FirebaseAuth.instance
           .signInWithEmailAndPassword(email: e, password: sandi);
+      loginBaru = true; // Shell menampilkan toast "Login berhasil".
       // Pergantian halaman dilakukan otomatis oleh listener authStateChanges.
       return null;
     } on FirebaseAuthException catch (e) {
@@ -355,7 +368,8 @@ class AppState extends ChangeNotifier {
     try {
       await FirebaseAuth.instance
           .createUserWithEmailAndPassword(email: e, password: sandi);
-      _pengguna = Karyawan(
+      loginBaru = true; // Shell menampilkan toast "Login berhasil".
+      final profilBaru = Karyawan(
         id: 'TIP-${_seq++}',
         nama: nama.trim(),
         jabatan: 'Karyawan',
@@ -364,6 +378,8 @@ class AppState extends ChangeNotifier {
         jadwal: 'Shift Pagi · 08:00 – 17:00',
         peran: PeranAkun.karyawan,
       );
+      _pengguna = profilBaru;
+      _profilTunda = profilBaru;
       // Pergantian halaman dilakukan otomatis oleh listener authStateChanges.
       return null;
     } on FirebaseAuthException catch (e) {
@@ -389,6 +405,7 @@ class AppState extends ChangeNotifier {
     }
     _pengguna = _pengguna.copyWithEmail(e);
     sesi = SesiStatus.sudahLogin;
+    loginBaru = true;
     fotoSelfie = null;
     selfieSimulasi = false;
     notifyListeners();

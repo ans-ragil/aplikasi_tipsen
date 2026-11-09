@@ -44,9 +44,13 @@ class _ShellScreenState extends State<ShellScreen> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      final nama = context.read<AppState>().pengguna.nama.split(' ').first;
-      showToast(context, 'Login berhasil. Selamat datang, $nama!',
-          ToastKind.success);
+      final app = context.read<AppState>();
+      if (app.loginBaru) {
+        app.loginBaru = false; // Tampil sekali per sesi login, bukan refresh.
+        final nama = app.pengguna.nama.split(' ').first;
+        showToast(context, 'Login berhasil. Selamat datang, $nama!',
+            ToastKind.success);
+      }
     });
   }
 

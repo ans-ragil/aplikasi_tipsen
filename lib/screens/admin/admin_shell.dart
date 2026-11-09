@@ -41,8 +41,12 @@ class _AdminShellState extends State<AdminShell> {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (!mounted) return;
-      showToast(context, 'Masuk sebagai HC Admin. Selamat bekerja, Bambang!',
-          ToastKind.success);
+      final app = context.read<AppState>();
+      if (app.loginBaru) {
+        app.loginBaru = false; // Tampil sekali per sesi login, bukan refresh.
+        showToast(context, 'Login berhasil. Selamat bekerja, Bambang!',
+            ToastKind.success);
+      }
     });
   }
 
