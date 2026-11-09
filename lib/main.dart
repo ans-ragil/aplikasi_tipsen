@@ -1,14 +1,18 @@
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
 import 'core/theme.dart';
+import 'firebase_options.dart';
 import 'models/models.dart';
 import 'screens/admin/admin_shell.dart';
 import 'screens/login_screen.dart';
 import 'screens/shell_screen.dart';
 import 'state/app_state.dart';
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
   runApp(const TipsenApp());
 }
 

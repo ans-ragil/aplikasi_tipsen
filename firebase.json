@@ -38,5 +38,17 @@
   "firestore": {
     "rules": "firestore.rules",
     "indexes": "firestore.indexes.json"
+  },
+  "flutter": {
+    "platforms": {
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "tipsen-app",
+          "configurations": {
+            "web": "1:1036289613056:web:a1f186fe80022eb3c2e7e5"
+          }
+        }
+      }
+    }
   }
 }

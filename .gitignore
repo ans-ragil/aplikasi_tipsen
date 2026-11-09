@@ -55,4 +55,5 @@ ui-debug.log
 *-debug.log
 .firebaserc
 serviceAccountKey.json
-lib/firebase_options.dart
+# firebase_options.dart sengaja DI-COMMIT: isinya pengenal project, bukan
+# password (lihat modul minggu 9, bagian 3).
