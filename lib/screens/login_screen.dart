@@ -133,17 +133,6 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
-  Future<void> _masukAdmin() async {
-    final app = context.read<AppState>();
-    final pesan = await app.masuk(AppState.emailAdmin, AppState.sandiAdmin);
-    if (!mounted) return;
-    if (pesan != null) {
-      showToast(context, pesan, ToastKind.error);
-      return;
-    }
-    showToast(context, 'Masuk sebagai HC Admin (demo).', ToastKind.success);
-  }
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -199,16 +188,6 @@ class _LoginScreenState extends State<LoginScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _kartuForm(),
-        const SizedBox(height: 12),
-        _kotakDemo(),
-        const SizedBox(height: 12),
-        AppButton(
-          label: 'Masuk sebagai HC Admin (Demo)',
-          icon: Icons.admin_panel_settings_rounded,
-          variant: AppButtonVariant.secondary,
-          height: 46,
-          onPressed: _masukAdmin,
-        ),
         const SizedBox(height: 16),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -438,56 +417,6 @@ class _LoginScreenState extends State<LoginScreen> {
             ),
           ],
         ),
-      ),
-    );
-  }
-
-  // ── Akun demo ────────────────────────────────────────────────
-  Widget _kotakDemo() {
-    return Container(
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: T.blueBg,
-        borderRadius: BorderRadius.circular(T.rLg),
-        border: Border.all(color: T.blueBorder),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Row(
-            children: [
-              Icon(Icons.key_rounded, size: 16, color: T.accent),
-              SizedBox(width: 7),
-              Text('Akun demo',
-                  style: TextStyle(
-                      fontSize: 12,
-                      fontWeight: FontWeight.w800,
-                      color: T.accent)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          _BarisDemo(
-            peran: 'Karyawan',
-            email: AppState.emailKaryawan,
-            sandi: AppState.sandiKaryawan,
-            onPakai: () => setState(() {
-              _emailC.text = AppState.emailKaryawan;
-              _sandiC.text = AppState.sandiKaryawan;
-              _error = null;
-            }),
-          ),
-          const SizedBox(height: 6),
-          _BarisDemo(
-            peran: 'HC Admin',
-            email: AppState.emailAdmin,
-            sandi: AppState.sandiAdmin,
-            onPakai: () => setState(() {
-              _emailC.text = AppState.emailAdmin;
-              _sandiC.text = AppState.sandiAdmin;
-              _error = null;
-            }),
-          ),
-        ],
       ),
     );
   }
@@ -753,52 +682,6 @@ class _Lingkaran extends StatelessWidget {
         shape: BoxShape.circle,
         color: Colors.white.withValues(alpha: alpha),
       ),
-    );
-  }
-}
-
-class _BarisDemo extends StatelessWidget {
-  const _BarisDemo({
-    required this.peran,
-    required this.email,
-    required this.sandi,
-    required this.onPakai,
-  });
-
-  final String peran;
-  final String email;
-  final String sandi;
-  final VoidCallback onPakai;
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(peran,
-                  style: const TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: T.accent)),
-              Text('$email · $sandi',
-                  style: const TextStyle(fontSize: 11, color: T.textSecondary)),
-            ],
-          ),
-        ),
-        TextButton(
-          onPressed: onPakai,
-          style: TextButton.styleFrom(
-            minimumSize: const Size(0, 30),
-            padding: const EdgeInsets.symmetric(horizontal: 8),
-            textStyle:
-                const TextStyle(fontSize: 11, fontWeight: FontWeight.w700),
-          ),
-          child: const Text('Isi otomatis'),
-        ),
-      ],
     );
   }
 }

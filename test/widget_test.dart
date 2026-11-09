@@ -47,19 +47,26 @@ void main() {
     expect(find.text('Kata sandi wajib diisi.'), findsOneWidget);
   });
 
-  testWidgets('Tombol "Isi otomatis" mengisi kredensial demo lalu masuk',
+  testWidgets('Kredensial demo diketik ke form lalu masuk ke aplikasi',
       (WidgetTester tester) async {
     await bukaAplikasi(tester);
 
-    // Tombol pertama = akun karyawan.
-    await tester.tap(find.text('Isi otomatis').first);
+    // Isi form langsung (kotak akun demo sudah dihapus agar tampilan
+    // seperti aplikasi sungguhan).
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Email Karyawan'),
+        'anisa@tipsen.id');
+    await tester.enterText(
+        find.widgetWithText(TextFormField, 'Kata Sandi'), 'tipsen123');
     await tester.pump();
 
     await tester.tap(find.text('Masuk Sekarang'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 400));
+    await tester.pump(const Duration(milliseconds: 400));
 
-    // Beranda karyawan tampil setelah login berhasil.
+    // Beranda karyawan tampil setelah login berhasil (cadangan kredensial
+    // demo dipakai karena Firebase tidak terinisialisasi di lingkungan uji).
     expect(find.textContaining('Halo, Anisa'), findsOneWidget);
     expect(find.text('MENU CEPAT'), findsOneWidget);
   });
