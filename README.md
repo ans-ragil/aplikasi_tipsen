@@ -140,9 +140,9 @@ Catatan desain:
 | # | Kasus uji | Langkah | Hasil yang diharapkan | Hasil nyata |
 |---|-----------|---------|----------------------|-------------|
 | 1 | Tambah data valid | Login karyawan → Presensi → Clock In (lokasi + selfie) | Dokumen baru muncul di collection `presensi` & daftar Riwayat | ✅ [bukti](docs/firestore-presensi.png) |
-| 2 | Tolak presensi ganda | Mencoba Clock In dua kali pada hari yang sama (logout → login → Presensi) | Langkah tetap "sudah Clock In"; layanan menolak dokumen kedua | ☐ |
-| 3 | Bertahan saat refresh | Setelah Clock In tekan **F5** di Chrome | Sapaan nama, daftar lokasi, dan riwayat presensi tetap tampil dari cloud | ☐ |
-| 4 | Isolasi antar akun | Keluar → masuk akun lain | Presensi akun pertama tidak muncul (stream difilter `uid`) | ☐ |
+| 2 | Tolak presensi ganda | Mencoba Clock In dua kali pada hari yang sama (logout → login → Presensi) | Langkah tetap "sudah Clock In"; layanan menolak dokumen kedua | ✅ tombol Clock In tidak muncul lagi walau logout-login/refresh |
+| 3 | Bertahan saat refresh | Setelah Clock In tekan **F5** di Chrome | Sapaan nama, daftar lokasi, dan riwayat presensi tetap tampil dari cloud | ✅ [bukti](docs/firestore-refresh.png) |
+| 4 | Isolasi antar akun | Keluar → masuk akun lain | Presensi akun pertama tidak muncul (stream difilter `uid`) | ✅ [bukti](docs/firestore-isolasi.png) |
 | 5 | Security Rules tanpa login | Akses Firestore tanpa sesi login / Rules ditolak | Firebase mengembalikan `permission-denied` | ☐ |
 | 6 | Auto-seed master lokasi | Login pertama kali, cek Console | Collection `lokasi` terisi 4 dokumen sekali saja (tidak dobel) | ✅ [bukti](docs/firestore-lokasi.png) |
 | 7 | Clock Out tersinkron | Clock Out lalu cek dokumen `presensi` hari ini | Field `clockOut` terisi; durasi muncul di Riwayat | ✅ [bukti](docs/firestore-presensi.png) |
