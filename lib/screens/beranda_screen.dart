@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../core/theme.dart';
 import '../core/widgets.dart';
 import '../models/models.dart';
+import '../services/layanan_firestore.dart';
 import '../state/app_state.dart';
 import 'pengajuan_screen.dart';
 import 'shell_screen.dart';
@@ -135,7 +136,16 @@ class _BerandaScreenState extends State<BerandaScreen> {
                   children: [
                     Expanded(flex: 5, child: hero),
                     const SizedBox(width: 18),
-                    Expanded(flex: 4, child: ringkasan),
+                    Expanded(
+                      flex: 4,
+                      child: Column(
+                        children: [
+                          ringkasan,
+                          const SizedBox(height: 16),
+                          const _KartuLokasiCloud(),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 22),
@@ -174,6 +184,8 @@ class _BerandaScreenState extends State<BerandaScreen> {
               hero,
               const SizedBox(height: 20),
               ringkasan,
+              const SizedBox(height: 16),
+              const _KartuLokasiCloud(),
               const SizedBox(height: 20),
               const SectionLabel('Menu Cepat'),
               const SizedBox(height: 10),
@@ -194,6 +206,151 @@ class _BerandaScreenState extends State<BerandaScreen> {
       case LangkahPresensi.sudahClockOut:
         widget.onBukaRiwayat(RiwayatFilter.hadir);
     }
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// KARTU LOKASI — READ REAL-TIME CLOUD FIRESTORE (MINGGU 10)
+// ═══════════════════════════════════════════════════════════════
+
+/// Daftar lokasi presensi dari collection `lokasi` (master data auto-seed),
+/// dibaca real-time memakai StreamBuilder + .snapshots() — data tetap tampil
+/// setelah browser di-refresh karena sumbernya Cloud Firestore, bukan memori.
+class _KartuLokasiCloud extends StatelessWidget {
+  const _KartuLokasiCloud();
+
+  @override
+  Widget build(BuildContext context) {
+    final app = context.read<AppState>();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionLabel('Lokasi Presensi · Cloud Firestore'),
+        const SizedBox(height: 8),
+        AppCard(
+          padding: const EdgeInsets.all(14),
+          child: StreamBuilder<List<LokasiKantor>>(
+            stream: app.streamLokasi,
+            builder: (context, snapshot) {
+              // Keadaan 1 — menunggu snapshot pertama.
+              if (snapshot.connectionState == ConnectionState.waiting &&
+                  !snapshot.hasData) {
+                return const Padding(
+                  padding: EdgeInsets.symmetric(vertical: 18),
+                  child: Center(
+                    child: SizedBox(
+                      width: 22,
+                      height: 22,
+                      child: CircularProgressIndicator(
+                          strokeWidth: 2.2, color: T.navy),
+                    ),
+                  ),
+                );
+              }
+
+              // Keadaan 2 — kesalahan (Rules menolak / koneksi terputus).
+              if (snapshot.hasError) {
+                return const Row(
+                  children: [
+                    Icon(Icons.cloud_off_rounded, size: 18, color: T.amber),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        'Data lokasi belum dapat dimuat. Periksa koneksi atau '
+                        'Security Rules Firestore.',
+                        style: TextStyle(fontSize: 11, color: T.textSecondary),
+                      ),
+                    ),
+                  ],
+                );
+              }
+
+              final daftar = snapshot.data ?? const <LokasiKantor>[];
+
+              // Keadaan 3 — data kosong.
+              if (daftar.isEmpty) {
+                return const Text('Belum ada lokasi presensi terdaftar.',
+                    style: TextStyle(fontSize: 11, color: T.textSecondary));
+              }
+
+              return Column(
+                children: [
+                  for (var i = 0; i < daftar.length; i++) ...[
+                    if (i > 0) const SizedBox(height: 10),
+                    _BarisLokasi(lokasi: daftar[i]),
+                  ],
+                ],
+              );
+            },
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+/// Satu baris lokasi kantor pada kartu lokasi.
+class _BarisLokasi extends StatelessWidget {
+  const _BarisLokasi({required this.lokasi});
+
+  final LokasiKantor lokasi;
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(
+          width: 38,
+          height: 38,
+          decoration: BoxDecoration(
+            color: lokasi.utama ? T.blueBg : T.canvas,
+            borderRadius: BorderRadius.circular(T.rMd),
+            border: Border.all(color: T.border),
+          ),
+          child: Icon(
+            lokasi.utama
+                ? Icons.corporate_fare_rounded
+                : Icons.location_city_rounded,
+            size: 18,
+            color: lokasi.utama ? T.accent : T.textMuted,
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(lokasi.nama,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(
+                            fontSize: 12.5, fontWeight: FontWeight.w700)),
+                  ),
+                  const SizedBox(width: 6),
+                  AppBadge(
+                    lokasi.utama ? 'Utama' : 'Cabang',
+                    tone:
+                        lokasi.utama ? AppBadgeTone.blue : AppBadgeTone.slate,
+                  ),
+                ],
+              ),
+              const SizedBox(height: 2),
+              Text(
+                '${lokasi.alamat} · radius ${lokasi.radiusMeter} m',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style:
+                    const TextStyle(fontSize: 10.5, color: T.textSecondary),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }
 

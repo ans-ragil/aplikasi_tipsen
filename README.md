@@ -97,3 +97,55 @@ python -m http.server 8080 -d build/web
 
 User flow, sitemap, wireframe, dan style guide tersedia pada modul minggu 1–4
 serta prototipe Figma "TIPSEN-App-Mockups".
+
+## Minggu 10 — Cloud Firestore (Tambah & Tampilkan Data)
+
+Data presensi kini tersimpan di **Cloud Firestore** dan tampil **real-time**,
+sehingga bertahan setelah browser di-refresh (tekan F5 → data tetap ada).
+Batas pertemuan: operasi **Create** dan **Read** saja (Update/Hapus = Minggu 11).
+
+### Pemetaan ERD proyek → 3 collection
+
+| Collection | Isi & field utama | Operasi Minggu 10 |
+|---|---|---|
+| `users/{uid}` | `uid`, `nama`, `email`, `jabatan`, `departemen`, `jadwal`, `peran`, `aktif`, `dibuatPada` (Timestamp) | **Create** otomatis saat daftar/masuk (bila belum ada), Read |
+| `lokasi/{kode}` | `id`, `nama`, `alamat`, `latitude`, `longitude`, `radiusMeter`, `utama` | **Auto-seed** 4 lokasi via `WriteBatch` saat kosong, **Read real-time** |
+| `presensi/{uid_tanggal}` | `uid`, `tanggal` (`yyyy-MM-dd`), `status`, `clockIn`, `clockOut`, `lokasiNama`, `jarakMeter`, `dalamRadius`, `selfie`, `keterangan`, `foto` (base64 ≤ 200 KB), `dibuatPada` | **Create** saat Clock In (ditolak bila sudah presensi hari yang sama), **Read real-time** per pengguna |
+
+Catatan desain:
+
+- **Doc ID presensi = `uid_tanggal`** — satu dokumen per pengguna per hari; cara
+  termurah mencegah presensi ganda (dicek lagi di layanan sebelum `.set()`).
+- **Denormalisasi** — `lokasiNama` ikut disimpan di dokumen `presensi` karena
+  Firestore tidak mendukung JOIN; daftar riwayat cukup satu kali baca.
+- **Anti composite index** — query real-time memakai satu `.where('uid', ...)`
+  dan pengurutan terbaru dilakukan di sisi Dart (`.sort`), bukan `.orderBy()`.
+- **Clock Out** memperbarui `clockOut` pada dokumen hari yang sama — satu-satunya
+  penulisan di luar Create karena alur presensi TIPSEN menuntutnya; materi Update
+  (Edit/Hapus) disentuh awal di sini dan diperdalam Minggu 11.
+- **Lapisan layanan terpisah** — `lib/services/layanan_firestore.dart` berisi
+  kontrak `LayananTipsen`, `LayananFirestore` (produksi), dan `LayananMemori`
+  (widget test / fallback tanpa Firebase), sehingga `flutter test` tetap lulus.
+
+### Aktivasi Firestore & Security Rules (langkah Console)
+
+1. Buka project **tipsen-app** di console.firebase.google.com → **Build > Firestore Database**.
+2. **Create database** → edisi Standard (gratis di paket Spark) → lokasi
+   `asia-southeast2` (Jakarta) → **Start in production mode** → Create.
+3. Tab **Rules** → salin isi `firestore.rules` di root project → **Publish**.
+   Intinya: `allow read, write: if request.auth != null;` (jangan Test Mode `if true;`).
+
+### Tabel Uji Cloud Firestore (≥ 5 kasus)
+
+| # | Kasus uji | Langkah | Hasil yang diharapkan | Hasil nyata |
+|---|-----------|---------|----------------------|-------------|
+| 1 | Tambah data valid | Login karyawan → Presensi → Clock In (lokasi + selfie) | Dokumen baru muncul di collection `presensi` & daftar Riwayat | ☐ |
+| 2 | Tolak presensi ganda | Mencoba Clock In dua kali pada hari yang sama (logout → login → Presensi) | Langkah tetap "sudah Clock In"; layanan menolak dokumen kedua | ☐ |
+| 3 | Bertahan saat refresh | Setelah Clock In tekan **F5** di Chrome | Sapaan nama, daftar lokasi, dan riwayat presensi tetap tampil dari cloud | ☐ |
+| 4 | Isolasi antar akun | Keluar → masuk akun lain | Presensi akun pertama tidak muncul (stream difilter `uid`) | ☐ |
+| 5 | Security Rules tanpa login | Akses Firestore tanpa sesi login / Rules ditolak | Firebase mengembalikan `permission-denied` | ☐ |
+| 6 | Auto-seed master lokasi | Login pertama kali, cek Console | Collection `lokasi` terisi 4 dokumen sekali saja (tidak dobel) | ☐ |
+| 7 | Clock Out tersinkron | Clock Out lalu cek dokumen `presensi` hari ini | Field `clockOut` terisi; durasi muncul di Riwayat | ☐ |
+
+Verifikasi Console: screenshot isi ketiga collection (`users`, `lokasi`,
+`presensi`) dilampirkan pada laporan Minggu 10.

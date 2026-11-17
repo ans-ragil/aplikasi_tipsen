@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/models.dart';
+import '../services/layanan_firestore.dart';
 import '../utils/validasi_auth.dart';
 
 /// Keadaan sesi pengguna.
@@ -65,9 +66,19 @@ class RekapKaryawan {
 /// terlihat karyawan. Seluruh data disimpan di penyimpanan lokal browser
 /// (bertahan setelah refresh) dan siap dipindahkan ke Firestore nanti.
 class AppState extends ChangeNotifier {
-  AppState() {
+  AppState() : layanan = buatLayananTipsen() {
     _seed();
   }
+
+  /// Layanan data (Firestore produksi / memori untuk uji widget).
+  final LayananTipsen layanan;
+
+  /// UID pengguna Firebase yang sedang login (null bila belum login).
+  String? _uid;
+
+  /// Langganan data real-time Firestore — aktif hanya saat login.
+  StreamSubscription<List<Presensi>>? _langgananPresensi;
+  StreamSubscription<List<LokasiKantor>>? _langgananLokasi;
 
   static const _kunciSimpan = 'tipsen.data.v2';
   static const _kunciFoto = 'tipsen.foto.v1';
@@ -212,6 +223,17 @@ class AppState extends ChangeNotifier {
   List<PengajuanIzin> get pengajuan => List.unmodifiable(_pengajuan);
   List<KaryawanAdmin> get karyawanAdmin => List.unmodifiable(_karyawan);
 
+  // ── Stream Cloud Firestore (Minggu 10) ───────────────────────
+
+  /// Daftar lokasi kantor dari collection `lokasi` — real-time via
+  /// StreamBuilder di Beranda. Dibuat sekali agar StreamBuilder tidak
+  /// berlangganan ulang setiap rebuild.
+  late final Stream<List<LokasiKantor>> streamLokasi = layanan.streamLokasi();
+
+  /// Presensi milik pengguna yang sedang login (Read real-time per user).
+  Stream<List<Presensi>> streamPresensiSaya() =>
+      layanan.streamPresensiSaya(_uid ?? '');
+
   // ════════════════════════════════════════════════════════════
   // INISIALISASI & PENYIMPANAN
   // ════════════════════════════════════════════════════════════
@@ -252,6 +274,11 @@ class AppState extends ChangeNotifier {
     if (pengguna == null) {
       sesi = SesiStatus.belumLogin;
       peran = PeranAkun.karyawan;
+      _uid = null;
+      _langgananPresensi?.cancel();
+      _langgananPresensi = null;
+      _langgananLokasi?.cancel();
+      _langgananLokasi = null;
     } else {
       final email = pengguna.email ?? '';
       // Pakai profil hasil daftar bila ada, agar nama dari form tidak hilang.
@@ -266,9 +293,50 @@ class AppState extends ChangeNotifier {
       sesi = SesiStatus.sudahLogin;
       fotoSelfie = null;
       selfieSimulasi = false;
+      // Minggu 10 — aktifkan sinkronisasi Cloud Firestore untuk pengguna ini:
+      // simpan profil (users), auto-seed lokasi, dan dengarkan data real-time.
+      _uid = pengguna.uid;
+      unawaited(_mulaiSinkronCloud(pengguna, namaDaftar: tunda?.nama));
     }
     siap = true;
     notifyListeners();
+  }
+
+  /// Sinkronisasi Cloud Firestore (Minggu 10 — Create & Read).
+  ///
+  /// 1. Create profil pengguna ke collection `users` (bila belum ada).
+  /// 2. Auto-seed master lokasi (WriteBatch) bila collection kosong.
+  /// 3. Read real-time: presensi milik pengguna + daftar lokasi.
+  Future<void> _mulaiSinkronCloud(User pengguna, {String? namaDaftar}) async {
+    final uid = pengguna.uid;
+    final email = pengguna.email ?? '';
+    try {
+      await layanan.simpanPengguna(
+        uid: uid,
+        email: email,
+        namaLengkap: namaDaftar,
+        peran: _adalahAdmin(email) ? 'admin' : 'karyawan',
+      );
+      await layanan.isiLokasiAwalJikaKosong();
+    } catch (_) {
+      // Cloud belum siap (database belum dibuat / Rules belum dipublikasi) —
+      // aplikasi tetap berjalan; stream di bawah akan mencoba lagi saat
+      // snapshot berikutnya.
+    }
+
+    _langgananPresensi?.cancel();
+    _langgananPresensi = layanan.streamPresensiSaya(uid).listen((daftar) {
+      // Data riwayat kini berasal dari cloud — bertahan setelah refresh.
+      _riwayat
+        ..clear()
+        ..addAll(daftar);
+      notifyListeners();
+    }, onError: (_) {});
+
+    _langgananLokasi?.cancel();
+    _langgananLokasi = layanan.streamLokasi().listen((_) {
+      notifyListeners();
+    }, onError: (_) {});
   }
 
   void _simpan() {
@@ -313,6 +381,8 @@ class AppState extends ChangeNotifier {
   @override
   void dispose() {
     _langgananAuth?.cancel();
+    _langgananPresensi?.cancel();
+    _langgananLokasi?.cancel();
     super.dispose();
   }
 
@@ -534,8 +604,11 @@ class AppState extends ChangeNotifier {
         ? StatusPresensi.wfh
         : (telat ? StatusPresensi.terlambat : StatusPresensi.hadir);
 
+    // Minggu 10 — doc ID cloud = uid_tanggal, sehingga satu dokumen per
+    // pengguna per hari (bentuk pertama pencegahan presensi ganda).
+    final uid = _uid;
     final catatan = Presensi(
-      id: 'P-${_seq++}',
+      id: uid != null ? idDokumenPresensi(uid, sekarang) : 'P-${_seq++}',
       tanggal: sekarang,
       status: status,
       lokasiNama: dalamRadius ? geofence.namaKantor : 'WFH / luar radius',
@@ -556,8 +629,22 @@ class AppState extends ChangeNotifier {
     _riwayat.insert(0, catatan);
     _catatKePortalHC(catatan);
     _simpan();
+    // Minggu 10 — Create dokumen presensi ke Cloud Firestore. UI sudah
+    // diperbarui lokal lebih dulu; stream snapshot akan mengonfirmasi.
+    if (uid != null) {
+      unawaited(_tulisPresensiCloud(catatan, uid));
+    }
     notifyListeners();
     return catatan;
+  }
+
+  Future<void> _tulisPresensiCloud(Presensi catatan, String uid) async {
+    try {
+      await layanan.tambahPresensi(catatan, uid);
+    } catch (_) {
+      // Bila cloud menolak (mis. presensi ganda), data lokal tetap dipakai
+      // agar sesi tidak terputus; pesan diserahkan ke verifikasi Console.
+    }
   }
 
   /// Catat Clock Out pada catatan hari ini (riwayat ikut diperbarui).
@@ -569,8 +656,22 @@ class AppState extends ChangeNotifier {
     _riwayat[i] = baru;
     _catatKePortalHC(baru);
     _simpan();
+    // Minggu 10 — perbarui jam pulang pada dokumen presensi hari yang sama
+    // (satu-satunya penulisan di luar Create; materi Update disentuh awal).
+    final uid = _uid;
+    if (uid != null) {
+      unawaited(_perbaruiClockOutCloud(baru.id, jam));
+    }
     notifyListeners();
     return baru;
+  }
+
+  Future<void> _perbaruiClockOutCloud(String idDokumen, String jam) async {
+    try {
+      await layanan.simpanClockOut(idDokumen, jam);
+    } catch (_) {
+      // Cloud tidak tersedia — jam pulang tetap tersimpan lokal.
+    }
   }
 
   /// Sinkronkan presensi karyawan ke data portal HC.
