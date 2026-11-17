@@ -284,7 +284,24 @@ class AppState extends ChangeNotifier {
       // Pakai profil hasil daftar bila ada, agar nama dari form tidak hilang.
       final tunda = _profilTunda;
       _profilTunda = null;
-      _pengguna = tunda ?? _pengguna.copyWithEmail(email);
+      if (tunda != null) {
+        _pengguna = tunda;
+      } else if (_pengguna.email.toLowerCase() != email.toLowerCase()) {
+        // Ganti akun — profil terakhir milik pengguna lain. Bangun profil
+        // baru dari email; nama lengkap sebenarnya dibaca dari collection
+        // users di Firestore (lihat _mulaiSinkronCloud).
+        _pengguna = Karyawan(
+          id: 'TIP-${_seq++}',
+          nama: email.split('@').first,
+          jabatan: 'Karyawan',
+          departemen: 'Belum diatur oleh HC',
+          email: email,
+          jadwal: 'Shift Pagi · 08:00 – 17:00',
+          peran: _adalahAdmin(email) ? PeranAkun.adminHC : PeranAkun.karyawan,
+        );
+      } else {
+        _pengguna = _pengguna.copyWithEmail(email);
+      }
       if (_adalahAdmin(email)) {
         peran = PeranAkun.adminHC;
       } else {
@@ -318,6 +335,11 @@ class AppState extends ChangeNotifier {
         peran: _adalahAdmin(email) ? 'admin' : 'karyawan',
       );
       await layanan.isiLokasiAwalJikaKosong();
+      // Read profil dari collection users agar sapaan memakai nama lengkap
+      // akun yang benar (perbaikan bug: sebelumnya sapaan tetap memakai
+      // profil akun sebelumnya saat berganti akun login).
+      final profil = await layanan.bacaPengguna(uid);
+      if (profil != null) _terapkanProfilCloud(profil, email);
     } catch (_) {
       // Cloud belum siap (database belum dibuat / Rules belum dipublikasi) —
       // aplikasi tetap berjalan; stream di bawah akan mencoba lagi saat
@@ -337,6 +359,53 @@ class AppState extends ChangeNotifier {
     _langgananLokasi = layanan.streamLokasi().listen((_) {
       notifyListeners();
     }, onError: (_) {});
+  }
+
+  /// Nilai "generik" yang ditulis saat dokumen users pertama dibuat.
+  static const _jabatanGenerik = 'Karyawan';
+  static const _departemenGenerik = 'Belum diatur oleh HC';
+  static const _jadwalGenerik = 'Shift Pagi · 08:00 – 17:00';
+
+  /// Pilih nilai profil: dokumen users lebih diutamakan, kecuali masih
+  /// berupa nilai generik sementara profil lokal lebih lengkap.
+  String _pilihNilai(String? dariDokumen, String lokal, String generik) {
+    final d = (dariDokumen ?? '').trim();
+    if (d.isEmpty || (d == generik && lokal != generik)) return lokal;
+    return d;
+  }
+
+  /// Terapkan profil dari dokumen `users/{uid}` ke profil tampilan.
+  void _terapkanProfilCloud(Map<String, dynamic> profil, String email) {
+    final namaDokumen = (profil['nama'] as String? ?? '').trim();
+    final namaEmail = email.split('@').first.trim().toLowerCase();
+    final namaLokal = _pengguna.nama.trim();
+
+    // Dokumen users adalah sumber utama, kecuali masih berupa nama-email
+    // otomatis sementara profil lokal lebih lengkap (akun lama Minggu 9).
+    final String nama;
+    if (namaDokumen.isEmpty) {
+      nama = namaLokal;
+    } else if (namaDokumen.toLowerCase() == namaEmail &&
+        namaLokal.toLowerCase() != namaEmail) {
+      nama = namaLokal;
+    } else {
+      nama = namaDokumen;
+    }
+
+    _pengguna = Karyawan(
+      id: _pengguna.id,
+      nama: nama,
+      jabatan: _pilihNilai(
+          profil['jabatan'] as String?, _pengguna.jabatan, _jabatanGenerik),
+      departemen: _pilihNilai(profil['departemen'] as String?,
+          _pengguna.departemen, _departemenGenerik),
+      email: email,
+      jadwal: _pilihNilai(
+          profil['jadwal'] as String?, _pengguna.jadwal, _jadwalGenerik),
+      peran: _adalahAdmin(email) ? PeranAkun.adminHC : PeranAkun.karyawan,
+      aktif: _pengguna.aktif,
+    );
+    notifyListeners();
   }
 
   void _simpan() {

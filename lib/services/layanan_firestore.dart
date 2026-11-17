@@ -154,6 +154,9 @@ abstract class LayananTipsen {
     required String peran,
   });
 
+  /// Read profil pengguna dari `users/{uid}`; null bila belum ada.
+  Future<Map<String, dynamic>?> bacaPengguna(String uid);
+
   /// Auto-seed master lokasi bila collection `lokasi` masih kosong.
   Future<void> isiLokasiAwalJikaKosong();
 
@@ -213,6 +216,13 @@ class LayananFirestore implements LayananTipsen {
       'aktif': true,
       'dibuatPada': FieldValue.serverTimestamp(),
     });
+  }
+
+  @override
+  Future<Map<String, dynamic>?> bacaPengguna(String uid) async {
+    final snap = await _db.collection('users').doc(uid).get();
+    if (!snap.exists) return null;
+    return snap.data();
   }
 
   // ── lokasi (master data, auto-seed) ───────────────────────────
@@ -347,6 +357,9 @@ class LayananMemori implements LayananTipsen {
   }) async {
     // Mode memori tidak menyimpan profil — cukup tidak melakukannya.
   }
+
+  @override
+  Future<Map<String, dynamic>?> bacaPengguna(String uid) async => null;
 
   @override
   Future<void> isiLokasiAwalJikaKosong() async {}

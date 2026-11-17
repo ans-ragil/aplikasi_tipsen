@@ -127,6 +127,14 @@ Catatan desain:
   kontrak `LayananTipsen`, `LayananFirestore` (produksi), dan `LayananMemori`
   (widget test / fallback tanpa Firebase), sehingga `flutter test` tetap lulus.
 
+### Perbaikan selama pengujian
+
+- **Sapaan memakai profil akun sebelumnya** — login dengan akun lain
+  (mis. `febrian@tipsen.id`) sempat menampilkan nama akun sebelumnya karena
+  nama lengkap belum dibaca balik dari Firestore. Perbaikan: saat berganti
+  akun profil dibangun ulang dari email, lalu profil dibaca dari
+  `users/{uid}` (`bacaPengguna`) dan diterapkan ke tampilan.
+
 ### Aktivasi Firestore & Security Rules (langkah Console)
 
 1. Buka project **tipsen-app** di console.firebase.google.com → **Build > Firestore Database**.
@@ -143,7 +151,7 @@ Catatan desain:
 | 2 | Tolak presensi ganda | Mencoba Clock In dua kali pada hari yang sama (logout → login → Presensi) | Langkah tetap "sudah Clock In"; layanan menolak dokumen kedua | ✅ tombol Clock In tidak muncul lagi walau logout-login/refresh |
 | 3 | Bertahan saat refresh | Setelah Clock In tekan **F5** di Chrome | Sapaan nama, daftar lokasi, dan riwayat presensi tetap tampil dari cloud | ✅ [bukti](docs/firestore-refresh.png) |
 | 4 | Isolasi antar akun | Keluar → masuk akun lain | Presensi akun pertama tidak muncul (stream difilter `uid`) | ✅ [bukti](docs/firestore-isolasi.png) |
-| 5 | Security Rules tanpa login | Akses Firestore tanpa sesi login / Rules ditolak | Firebase mengembalikan `permission-denied` | ☐ |
+| 5 | Security Rules tanpa login | Rules sementara diubah `if false` → refresh → dikembalikan | Firebase mengembalikan `permission-denied`; data lokasi kembali normal setelah rules diperbaiki | ✅ [ditolak](docs/firestore-rules-ditolak.png) · [pulih](docs/firestore-rules-pulih.png) |
 | 6 | Auto-seed master lokasi | Login pertama kali, cek Console | Collection `lokasi` terisi 4 dokumen sekali saja (tidak dobel) | ✅ [bukti](docs/firestore-lokasi.png) |
 | 7 | Clock Out tersinkron | Clock Out lalu cek dokumen `presensi` hari ini | Field `clockOut` terisi; durasi muncul di Riwayat | ✅ [bukti](docs/firestore-presensi.png) |
 

@@ -302,3 +302,29 @@ status (sudah/belum ada foto) dan jalan untuk menghapus foto.
 `flutter analyze` 0 isu · `flutter test` 3/3 lulus · `flutter build web` sukses ·
 Chrome 1440/900/600 px: login dua panel, topbar tanpa jam, avatar kamera saja,
 **0 error runtime**.
+
+## 9. Minggu 10 — Cloud Firestore + perbaikan sapaan (17 Nov 2026)
+
+### 9.1 Akar masalah: sapaan memakai profil akun sebelumnya
+
+**Gejala.** Login dengan `febrian@tipsen.id` (akun baru Minggu 10) tetap
+menampilkan "Halo, Anisa" dan avatar "AR" — profil tampilan tidak berganti.
+
+**Akar masalah.** `_pengguna` default adalah profil Anisa; `_profilTunda`
+hanya terisi saat Daftar pada sesi yang sama. Saat login akun lain pada sesi
+berbeda, profil tidak dibangun ulang — dan sebelum Minggu 10 tidak ada sumber
+cloud untuk membaca nama lengkap akun.
+
+**Perbaikan.** (a) Saat login dengan email berbeda, profil tampilan dibangun
+ulang dari email (nama sementara = bagian sebelum @). (b) Setelah profil
+ditulis ke `users/{uid}`, layanan baru `bacaPengguna(uid)` membaca dokumen
+dan menerapkannya ke tampilan (`_terapkanProfilCloud`) — nama dokumen menjadi
+sumber utama, kecuali masih berupa nama-email otomatis sementara profil lokal
+lebih lengkap (akun lama Minggu 9). Field generik (`Karyawan`, `Belum diatur
+oleh HC`, `Shift Pagi · 08:00 – 17:00`) tidak menimpa nilai lokal yang lebih
+spesifik.
+
+### 9.2 Verifikasi
+
+`flutter analyze` 0 isu · `flutter test` 3/3 lulus · tabel uji Firestore 7/7
+kasus ✅ dengan bukti screenshot di `docs/firestore-*.png`.
