@@ -350,6 +350,7 @@ class PengajuanIzin {
     this.jabatanPemohon,
     this.alasanPenolakan,
     this.diajukanPada,
+    this.diubahPada,
   });
 
   final String id;
@@ -369,6 +370,14 @@ class PengajuanIzin {
   final String? alasanPenolakan;
   final DateTime? diajukanPada;
 
+  /// Field audit Minggu 11 — terisi setelah pengajuan diubah pemiliknya.
+  /// `dibuatPada` (diajukanPada) & `idPengguna` (pemohon) TIDAK boleh berubah.
+  final DateTime? diubahPada;
+
+  /// Aturan bisnis Minggu 11: ubah/batalkan hanya boleh selama status
+  /// masih Menunggu. Dipakai untuk `enabled:` pada menu aksi (Ubah/Batalkan).
+  bool get bisaDiubah => status == StatusPengajuan.menunggu;
+
   int get jumlahHari => tanggalSelesai.difference(tanggalMulai).inDays + 1;
 
   String get periodeLabel {
@@ -383,13 +392,18 @@ class PengajuanIzin {
     String? diprosesOleh,
     String? alasanPenolakan,
     Lampiran? lampiran,
+    String? jenis,
+    DateTime? tanggalMulai,
+    DateTime? tanggalSelesai,
+    String? alasan,
+    DateTime? diubahPada,
   }) =>
       PengajuanIzin(
         id: id,
-        jenis: jenis,
-        tanggalMulai: tanggalMulai,
-        tanggalSelesai: tanggalSelesai,
-        alasan: alasan,
+        jenis: jenis ?? this.jenis,
+        tanggalMulai: tanggalMulai ?? this.tanggalMulai,
+        tanggalSelesai: tanggalSelesai ?? this.tanggalSelesai,
+        alasan: alasan ?? this.alasan,
         status: status ?? this.status,
         lampiran: lampiran ?? this.lampiran,
         diprosesOleh: diprosesOleh ?? this.diprosesOleh,
@@ -397,6 +411,7 @@ class PengajuanIzin {
         jabatanPemohon: jabatanPemohon,
         alasanPenolakan: alasanPenolakan ?? this.alasanPenolakan,
         diajukanPada: diajukanPada,
+        diubahPada: diubahPada ?? this.diubahPada,
       );
 
   Map<String, dynamic> toJson({bool denganLampiran = true}) => {
@@ -413,6 +428,7 @@ class PengajuanIzin {
         'jabatanPemohon': jabatanPemohon,
         'alasanPenolakan': alasanPenolakan,
         'diajukanPada': diajukanPada == null ? null : _iso(diajukanPada!),
+        'diubahPada': diubahPada == null ? null : _iso(diubahPada!),
       };
 
   static PengajuanIzin fromJson(Map<String, dynamic> j) => PengajuanIzin(
@@ -432,6 +448,9 @@ class PengajuanIzin {
         diajukanPada: j['diajukanPada'] == null
             ? null
             : _parseTanggal(j['diajukanPada']),
+        diubahPada: j['diubahPada'] == null
+            ? null
+            : _parseTanggal(j['diubahPada']),
       );
 }
 

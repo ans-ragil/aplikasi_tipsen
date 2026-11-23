@@ -78,6 +78,7 @@ class AppState extends ChangeNotifier {
 
   /// Langganan data real-time Firestore — aktif hanya saat login.
   StreamSubscription<List<Presensi>>? _langgananPresensi;
+  StreamSubscription<List<PengajuanIzin>>? _langgananPengajuan;
   StreamSubscription<List<LokasiKantor>>? _langgananLokasi;
 
   static const _kunciSimpan = 'tipsen.data.v2';
@@ -277,6 +278,8 @@ class AppState extends ChangeNotifier {
       _uid = null;
       _langgananPresensi?.cancel();
       _langgananPresensi = null;
+      _langgananPengajuan?.cancel();
+      _langgananPengajuan = null;
       _langgananLokasi?.cancel();
       _langgananLokasi = null;
     } else {
@@ -350,6 +353,22 @@ class AppState extends ChangeNotifier {
     _langgananPresensi = layanan.streamPresensiSaya(uid).listen((daftar) {
       // Data riwayat kini berasal dari cloud — bertahan setelah refresh.
       _riwayat
+        ..clear()
+        ..addAll(daftar);
+      notifyListeners();
+    }, onError: (_) {});
+
+    // Minggu 11 — pengajuan izin kini juga tersimpan di Firestore dan
+    // mengalir real-time: karyawan menerima pengajuannya sendiri, HC
+    // menerima seluruh pengajuan (satu sumber data dua arah).
+    _langgananPengajuan?.cancel();
+    _langgananPengajuan = layanan
+        .streamPengajuanTampil(
+          uid,
+          sebagaiHC: _adalahAdmin(email),
+        )
+        .listen((daftar) {
+      _pengajuan
         ..clear()
         ..addAll(daftar);
       notifyListeners();
@@ -451,6 +470,7 @@ class AppState extends ChangeNotifier {
   void dispose() {
     _langgananAuth?.cancel();
     _langgananPresensi?.cancel();
+    _langgananPengajuan?.cancel();
     _langgananLokasi?.cancel();
     super.dispose();
   }
@@ -812,16 +832,27 @@ class AppState extends ChangeNotifier {
 
   // ════════════════════════════════════════════════════════════
   // PENGAJUAN IZIN (satu daftar untuk karyawan & HC)
+  //
+  // Minggu 11 — CRUD lengkap di Firestore:
+  //  Create  : kirimPengajuan      → tambahPengajuan (doc baru + field audit)
+  //  Update  : ubahPengajuan       → update() milik pemilik, status Menunggu
+  //  Delete  : batalkanPengajuan   → delete() milik pemilik, status Menunggu
+  //  Keputusan HC tetap lewat putuskanPengajuan (update oleh peran HC).
+  // Daftar _pengajuan diperbarui lokal lebih dulu (UI responsif), lalu
+  // stream Firestore mengonfirmasi; pesan galat dikembalikan ke pemanggil.
   // ════════════════════════════════════════════════════════════
-  PengajuanIzin kirimPengajuan({
+
+  /// Kirim pengajuan baru. Mengembalikan pesan galat, atau null bila sukses.
+  Future<String?> kirimPengajuan({
     required String jenis,
     required DateTime mulai,
     required DateTime selesai,
     required String alasan,
     Lampiran? lampiran,
-  }) {
-    final p = PengajuanIzin(
-      id: 'IZ-${_seq++}',
+  }) async {
+    final uid = _uid;
+    final draf = PengajuanIzin(
+      id: uid != null ? 'menunggu-id' : 'IZ-${_seq++}',
       jenis: jenis,
       tanggalMulai: mulai,
       tanggalSelesai: selesai,
@@ -832,14 +863,124 @@ class AppState extends ChangeNotifier {
       jabatanPemohon: _pengguna.jabatan,
       diajukanPada: DateTime.now(),
     );
-    _pengajuan.insert(0, p);
-    _simpan();
-    notifyListeners();
-    return p;
+
+    if (uid == null) {
+      // Tanpa Firebase (widget test) — simpan lokal saja.
+      _pengajuan.insert(0, draf);
+      _simpan();
+      notifyListeners();
+      return null;
+    }
+
+    try {
+      final tersimpan = await layanan.tambahPengajuan(draf, uid);
+      _pengajuan.insert(0, tersimpan);
+      _simpan();
+      notifyListeners();
+      return null;
+    } on OperasiDitolakException catch (e) {
+      return e.pesan;
+    } on AturanBisnisException catch (e) {
+      return e.pesan;
+    } catch (_) {
+      return 'Gagal mengirim pengajuan. Periksa koneksi lalu coba lagi.';
+    }
+  }
+
+  /// Ubah pengajuan milik sendiri (mode ubah formulir). Field audit
+  /// diajukanPada dan identitas pemohon tidak boleh berubah; cloud mengisi
+  /// diubahPada secara otomatis (serverTimestamp).
+  Future<String?> ubahPengajuan({
+    required String idPengajuan,
+    required String jenis,
+    required DateTime mulai,
+    required DateTime selesai,
+    required String alasan,
+    Lampiran? lampiran,
+  }) async {
+    final uid = _uid;
+    final i = _pengajuan.indexWhere((p) => p.id == idPengajuan);
+    if (i < 0) return 'Pengajuan tidak ditemukan.';
+    if (!_pengajuan[i].bisaDiubah) {
+      return 'Pengajuan sudah diputuskan HC dan tidak dapat diubah lagi.';
+    }
+
+    if (uid == null) {
+      _pengajuan[i] = _pengajuan[i].copyWith(
+        jenis: jenis,
+        tanggalMulai: mulai,
+        tanggalSelesai: selesai,
+        alasan: alasan,
+        lampiran: lampiran,
+        diubahPada: DateTime.now(),
+      );
+      _simpan();
+      notifyListeners();
+      return null;
+    }
+
+    try {
+      await layanan.ubahPengajuan(
+        idPengajuan: idPengajuan,
+        uid: uid,
+        jenis: jenis,
+        mulai: mulai,
+        selesai: selesai,
+        alasan: alasan,
+        lampiran: lampiran,
+      );
+      // Optimistik: stream snapshot akan menegaskan nilai diubahPada.
+      _pengajuan[i] = _pengajuan[i].copyWith(
+        jenis: jenis,
+        tanggalMulai: mulai,
+        tanggalSelesai: selesai,
+        alasan: alasan,
+        lampiran: lampiran,
+        diubahPada: DateTime.now(),
+      );
+      _simpan();
+      notifyListeners();
+      return null;
+    } on OperasiDitolakException catch (e) {
+      return e.pesan;
+    } catch (_) {
+      return 'Gagal menyimpan perubahan. Periksa koneksi lalu coba lagi.';
+    }
+  }
+
+  /// Batalkan (hapus) pengajuan milik sendiri yang masih Menunggu.
+  /// Dipanggil HANYA setelah pengguna menyetujui dialog konfirmasi.
+  Future<String?> batalkanPengajuan(String idPengajuan) async {
+    final uid = _uid;
+    final i = _pengajuan.indexWhere((p) => p.id == idPengajuan);
+    if (i < 0) return 'Pengajuan tidak ditemukan.';
+    if (!_pengajuan[i].bisaDiubah) {
+      return 'Pengajuan sudah diputuskan HC dan tidak dapat dibatalkan.';
+    }
+
+    if (uid == null) {
+      _pengajuan.removeAt(i);
+      _simpan();
+      notifyListeners();
+      return null;
+    }
+
+    try {
+      await layanan.batalkanPengajuan(idPengajuan, uid);
+      _pengajuan.removeAt(i);
+      _simpan();
+      notifyListeners();
+      return null;
+    } on OperasiDitolakException catch (e) {
+      return e.pesan;
+    } catch (_) {
+      return 'Gagal membatalkan pengajuan. Periksa koneksi lalu coba lagi.';
+    }
   }
 
   /// Keputusan HC — langsung terlihat oleh karyawan yang bersangkutan.
-  void putuskanPengajuan(String id, bool setujui, {String? alasanPenolakan}) {
+  Future<void> putuskanPengajuan(String id, bool setujui,
+      {String? alasanPenolakan}) async {
     final i = _pengajuan.indexWhere((p) => p.id == id);
     if (i < 0) return;
     _pengajuan[i] = _pengajuan[i].copyWith(
@@ -849,6 +990,22 @@ class AppState extends ChangeNotifier {
     );
     _simpan();
     notifyListeners();
+    // Minggu 11 — keputusan HC ikut ditulis ke Firestore agar karyawan
+    // menerima status terbaru real-time (Rules mengizinkan peran admin).
+    final uid = _uid;
+    if (uid != null && peran == PeranAkun.adminHC) {
+      try {
+        await layanan.putuskanPengajuan(
+          idPengajuan: id,
+          setujui: setujui,
+          diprosesOleh: '${adminHC.nama} (HC)',
+          alasanPenolakan: alasanPenolakan,
+        );
+      } catch (_) {
+        // Cloud menolak (mis. Rules belum Publish) — keputusan tetap
+        // tersimpan lokal dan terlihat di sesi ini.
+      }
+    }
   }
 
   int get totalMenungguPersetujuan =>

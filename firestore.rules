@@ -1,23 +1,87 @@
 rules_version = '2';
 
 // ═══════════════════════════════════════════════════════════════════════
-// TIPSEN — Security Rules Cloud Firestore (Minggu 10 — dasar otorisasi)
+// TIPSEN — Security Rules Cloud Firestore (Minggu 11 — aturan kepemilikan)
 //
-// Aturan dasar sesuai modul: hanya pengguna yang SUDAH LOGIN (Firebase Auth)
-// yang boleh membaca dan menulis data ke seluruh collection:
-//   users       — profil pengguna (Create saat daftar/masuk)
-//   lokasi      — master lokasi kantor (auto-seed, Read real-time)
-//   presensi    — catatan kehadiran per hari (Create Clock In, Read real-time)
+// Perubahan dari Minggu 10: sebelumnya `allow read, write: if
+// request.auth != null` di seluruh dokumen (siapa pun yang login boleh
+// menulis apa pun). Mulai Minggu 11, penulisan dibatasi:
+//   1. users    → hanya pemilik uid.
+//   2. presensi → hanya pemilik dokumen (field `uid`).
+//   3. pengajuan→ create/update/delete hanya PEMILIK dokumen
+//                  (field `idPengguna`) DAN hanya selama status Menunggu —
+//                  KECUALI update keputusan oleh peran admin (HC).
 //
-// Tanpa login → permission-denied (teruji pada Tabel Uji kasus 5).
-// Pembatasan per-peran (karyawan vs admin HC) diperketat pada Minggu 11
-// bersama fitur Update & Delete.
+// Aturan yang sama juga diperiksa di kode aplikasi (pastikanBolehDiubah())
+// sehingga pengguna menerima pesan galat yang jelas; Rules menjaga data
+// tetap aman meski API dipanggil langsung di luar aplikasi.
+//
+// ⚠️ Wajib Publish di Console Firebase setelah mengubah berkas ini.
 // ═══════════════════════════════════════════════════════════════════════
 
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
-      allow read, write: if request.auth != null;
+
+    // ── Fungsi bersama ──────────────────────────────────────────────
+    function sudahMasuk() {
+      return request.auth != null;
+    }
+
+    // Pemilik dokumen: field idPengguna menyimpan uid pembuatnya.
+    function pemilik(data) {
+      return sudahMasuk() && data.idPengguna == request.auth.uid;
+    }
+
+    // Peran disimpan pada dokumen users/{uid} (nilainya 'admin' untuk HC).
+    function adalahHC() {
+      return sudahMasuk()
+        && get(/databases/$(database)/documents/users/$(request.auth.uid))
+            .data.peran == 'admin';
+    }
+
+    // ── Profil pengguna ─────────────────────────────────────────────
+    match /users/{uid} {
+      // Read dibuka ke semua pengguna login: HC perlu membaca profil
+      // karyawan; pemegang token juga membaca profilnya sendiri.
+      allow read: if sudahMasuk();
+      // Write hanya pada profilnya sendiri.
+      allow write: if sudahMasuk() && request.auth.uid == uid;
+    }
+
+    // ── Master lokasi kantor (data publik internal, auto-seed) ─────
+    match /lokasi/{idLokasi} {
+      allow read: if sudahMasuk();
+      allow write: if sudahMasuk();
+    }
+
+    // ── Presensi harian ─────────────────────────────────────────────
+    match /presensi/{idPresensi} {
+      allow read: if sudahMasuk();
+      // Create saat Clock In dan Update saat Clock Out — hanya pemilik.
+      allow create: if pemilik(request.resource.data);
+      allow update: if pemilik(resource.data);
+      // Riwayat presensi tidak boleh dihapus karyawan lewat aplikasi.
+      allow delete: if false;
+    }
+
+    // ── Pengajuan izin/cuti (Minggu 11 — CRUD kepemilikan) ─────────
+    match /pengajuan/{idPengajuan} {
+      allow read: if sudahMasuk();
+
+      // Create: pemilik dokumen + status awal wajib 'menunggu'.
+      allow create: if pemilik(request.resource.data)
+                    && request.resource.data.status == 'menunggu';
+
+      // Update:
+      //  - pemilik, SELAMA status masih 'menunggu' (sebelum diputuskan);
+      //  - atau peran HC (menulis keputusan Setujui/Tolak).
+      allow update: if (pemilik(resource.data)
+                       && resource.data.status == 'menunggu')
+                    || adalahHC();
+
+      // Delete (batalkan): pemilik + status masih 'menunggu'.
+      allow delete: if pemilik(resource.data)
+                    && resource.data.status == 'menunggu';
     }
   }
 }
