@@ -14,8 +14,16 @@ const _maksUkuranLampiran = 700 * 1024; // 700 KB
 const _ekstensiDiizinkan = ['pdf', 'jpg', 'jpeg', 'png'];
 
 /// Form pengajuan izin/cuti (halaman turunan dari Beranda).
+///
+/// Minggu 11 — satu formulir, dua mode:
+///  - [pengajuanAwal] null → mode TAMBAH (membuat pengajuan baru).
+///  - [pengajuanAwal] terisi → mode UBAH: isian terisi data lama, tombol
+///    menjadi "Simpan Perubahan", dan perubahan ditulis lewat update().
+///    Validasi dan pemilihan lampiran tidak ditulis ulang.
 class PengajuanScreen extends StatefulWidget {
-  const PengajuanScreen({super.key});
+  const PengajuanScreen({super.key, this.pengajuanAwal});
+
+  final PengajuanIzin? pengajuanAwal;
 
   @override
   State<PengajuanScreen> createState() => _PengajuanScreenState();
@@ -31,6 +39,27 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
   Lampiran? _lampiran;
   bool _berhasil = false;
   bool _mengunggah = false;
+  bool _menyimpan = false;
+
+  /// Pengajuan yang sedang diubah (null = mode tambah).
+  PengajuanIzin? _awal;
+  bool get _modeUbah => _awal != null;
+
+  @override
+  void initState() {
+    super.initState();
+    _awal = widget.pengajuanAwal;
+    final a = _awal;
+    if (a != null) {
+      // Isi awal dari data lama — form bekerja seperti mode tambah,
+      // hanya tujuan simpannya yang berbeda.
+      _jenis = a.jenis;
+      _mulai = a.tanggalMulai;
+      _selesai = a.tanggalSelesai;
+      _alasanC.text = a.alasan;
+      _lampiran = a.lampiran;
+    }
+  }
 
   @override
   void dispose() {
@@ -126,39 +155,76 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
   }
 
   Future<void> _kirim() async {
-    setState(() => _berhasil = false);
+    setState(() {
+      _berhasil = false;
+      _menyimpan = true;
+    });
     final valid = _formKey.currentState!.validate();
     if (_mulai == null) {
+      setState(() => _menyimpan = false);
       showToast(context, 'Tanggal mulai wajib dipilih.', ToastKind.error);
       return;
     }
     if (_selesai == null) {
+      setState(() => _menyimpan = false);
       showToast(context, 'Tanggal selesai wajib dipilih.', ToastKind.error);
       return;
     }
     if (_selesai!.isBefore(_mulai!)) {
+      setState(() => _menyimpan = false);
       showToast(context, 'Tanggal selesai tidak boleh lebih awal.', ToastKind.error);
       return;
     }
-    if (!valid) return;
+    if (!valid) {
+      setState(() => _menyimpan = false);
+      return;
+    }
 
-    context.read<AppState>().kirimPengajuan(
-          jenis: _jenis,
-          mulai: _mulai!,
-          selesai: _selesai!,
-          alasan: _alasanC.text.trim(),
-          lampiran: _lampiran,
-        );
+    final app = context.read<AppState>();
+    final String? galat;
+    if (_modeUbah) {
+      galat = await app.ubahPengajuan(
+        idPengajuan: _awal!.id,
+        jenis: _jenis,
+        mulai: _mulai!,
+        selesai: _selesai!,
+        alasan: _alasanC.text.trim(),
+        lampiran: _lampiran,
+      );
+    } else {
+      galat = await app.kirimPengajuan(
+        jenis: _jenis,
+        mulai: _mulai!,
+        selesai: _selesai!,
+        alasan: _alasanC.text.trim(),
+        lampiran: _lampiran,
+      );
+    }
+    if (!mounted) return;
+    if (galat != null) {
+      setState(() => _menyimpan = false);
+      showToast(context, galat, ToastKind.error);
+      return;
+    }
 
     setState(() {
       _berhasil = true;
-      _mulai = null;
-      _selesai = null;
-      _lampiran = null;
-      _jenis = daftarJenisPengajuan.first;
+      _menyimpan = false;
+      if (!_modeUbah) {
+        _mulai = null;
+        _selesai = null;
+        _lampiran = null;
+        _jenis = daftarJenisPengajuan.first;
+        _alasanC.clear();
+      }
     });
-    _alasanC.clear();
-    showToast(context, 'Pengajuan berhasil dikirim ke HC.', ToastKind.success);
+    showToast(
+      context,
+      _modeUbah
+          ? 'Perubahan berhasil disimpan. Status tetap Menunggu sampai HC memutuskan.'
+          : 'Pengajuan berhasil dikirim ke HC.',
+      ToastKind.success,
+    );
   }
 
   @override
@@ -166,7 +232,7 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
     return Scaffold(
       backgroundColor: T.canvas,
       appBar: AppBar(
-        title: const Text('Pengajuan Izin & Cuti'),
+        title: Text(_modeUbah ? 'Ubah Pengajuan' : 'Pengajuan Izin & Cuti'),
         leading: IconButton(
           tooltip: 'Kembali',
           icon: const Icon(Icons.arrow_back_rounded),
@@ -179,11 +245,16 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
           child: ListView(
             padding: const EdgeInsets.fromLTRB(T.margin, 4, T.margin, 28),
             children: [
-              const Text(
-                'Ajukan cuti atau izin tanpa formulir manual. Pengajuan akan '
-                'diteruskan ke HC untuk disetujui.',
+              Text(
+                _modeUbah
+                    ? 'Perbaiki data pengajuan Anda. Perubahan hanya dapat '
+                        'dilakukan selama status masih Menunggu.'
+                    : 'Ajukan cuti atau izin tanpa formulir manual. Pengajuan akan '
+                        'diteruskan ke HC untuk disetujui.',
                 style: TextStyle(
-                    fontSize: 12.5, color: T.textSecondary, height: 1.5),
+                    fontSize: 12.5,
+                    color: T.textSecondary,
+                    height: 1.5),
               ),
               const SizedBox(height: 16),
 
@@ -195,25 +266,32 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
                     borderRadius: BorderRadius.circular(T.rLg),
                     border: Border.all(color: T.greenBorder),
                   ),
-                  child: const Row(
+                  child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Icon(Icons.check_circle_rounded, color: T.green, size: 20),
-                      SizedBox(width: 10),
+                      const Icon(Icons.check_circle_rounded,
+                          color: T.green, size: 20),
+                      const SizedBox(width: 10),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text('Pengajuan berhasil dikirim',
-                                style: TextStyle(
+                            Text(
+                                _modeUbah
+                                    ? 'Perubahan berhasil disimpan'
+                                    : 'Pengajuan berhasil dikirim',
+                                style: const TextStyle(
                                     fontSize: 13,
                                     fontWeight: FontWeight.w700,
                                     color: T.green)),
-                            SizedBox(height: 3),
+                            const SizedBox(height: 3),
                             Text(
-                              'Pantau status persetujuannya pada menu Riwayat.',
-                              style:
-                                  TextStyle(fontSize: 11.5, color: T.green),
+                              _modeUbah
+                                  ? 'Status pengajuan tetap Menunggu sampai '
+                                      'HC memutuskan.'
+                                  : 'Pantau status persetujuannya pada menu Riwayat.',
+                              style: const TextStyle(
+                                  fontSize: 11.5, color: T.green),
                             ),
                           ],
                         ),
@@ -375,9 +453,13 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
                         ),
                       const SizedBox(height: 18),
                       AppButton(
-                        label: 'Kirim Pengajuan',
-                        icon: Icons.send_rounded,
-                        onPressed: _kirim,
+                        label: _modeUbah
+                            ? (_menyimpan ? 'Menyimpan…' : 'Simpan Perubahan')
+                            : (_menyimpan ? 'Mengirim…' : 'Kirim Pengajuan'),
+                        icon: _modeUbah
+                            ? Icons.save_rounded
+                            : Icons.send_rounded,
+                        onPressed: _menyimpan ? null : _kirim,
                       ),
                     ],
                   ),

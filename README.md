@@ -158,3 +158,48 @@ Catatan desain:
 Verifikasi Console: screenshot isi ketiga collection dilampirkan pada laporan —
 [`users`](docs/firestore-users.png) · [`lokasi`](docs/firestore-lokasi.png) ·
 [`presensi`](docs/firestore-presensi.png).
+
+## Minggu 11 — CRUD Lengkap: Ubah & Batalkan Pengajuan
+
+Pengajuan izin/cuti kini tersimpan di collection **`pengajuan`** (Firestore) dengan
+field audit: `idPengguna` (pemilik, tidak boleh berubah), `diajukanPada`
+(`dibuatPada`), `diubahPada`, dan `status`. Siklus CRUD lengkap:
+
+- **Create** — `kirimPengajuan()` → `tambahPengajuan()` (doc baru, status `menunggu`).
+- **Read** — real-time: karyawan menerima pengajuannya sendiri, HC menerima semua.
+- **Update** — tombol **Ubah** di Detail Pengajuan membuka formulir mode ubah
+  (satu form, dua mode via `pengajuanAwal`); ditulis dengan `update()` (bukan
+  `set()`) sehingga field audit tetap utuh.
+- **Delete** — tombol **Batalkan** selalu lewat dialog konfirmasi
+  (`await showDialog<bool>`), baru `delete()`.
+
+Aturan bisnis "hanya pemilik + hanya status Menunggu" diterapkan dua lapis:
+di kode (`pastikanBolehDiubah()` di lapisan layanan) dan di
+[`firestore.rules`](firestore.rules) (aturan kepemilikan + peran HC untuk
+keputusan Setujui/Tolak). Cek tumpang tindih periode memakai
+`abaikanIdPengajuan` agar dokumen yang sedang diubah tidak dianggap bentrok
+dengan dirinya sendiri.
+
+### Security Rules (Minggu 11) — langkah Console
+
+1. Buka **Console Firebase → Firestore Database → Rules**.
+2. Salin ulang isi `firestore.rules` di root project → **Publish**.
+   Isi baru: `users` write hanya pemilik uid; `presensi` create/update hanya
+   pemilik; `pengajuan` create/update/delete hanya pemilik + status `menunggu`,
+   kecuali update keputusan oleh peran `admin` (HC).
+3. Tanpa Publish, operasi baru akan terus memakai Rules lama Minggu 10.
+
+### Tabel Uji CRUD (≥ 6 kasus)
+
+| # | Kasus uji | Langkah | Hasil yang diharapkan | Hasil nyata |
+|---|-----------|---------|----------------------|-------------|
+| 1 | Ubah data valid | Detail Pengajuan (status Menunggu) → Ubah → ganti alasan/tanggal → Simpan Perubahan | Dokumen berubah; `diajukanPada` & `idPengguna` tetap; `diubahPada` terisi | ⏳ isi setelah menguji di Chrome |
+| 2 | Ubah jadi periode tumpang tindih | Ubah pengajuan ke periode yang sama dengan pengajuan lain milik sendiri | Ditolak dengan pesan periode bertumpuk; data lama utuh | ⏳ |
+| 3 | Ubah/batalkan status terkunci | Coba aksi pada pengajuan berstatus Disetujui/Ditolak | Menu Aksi tidak tampil (`bisaDiubah`); bila dipaksa (API), ditolak Rules | ⏳ |
+| 4 | Batalkan dengan konfirmasi | Detail Pengajuan → Batalkan → dialog → "Ya, Batalkan" | Dialog muncul menyebut data; setelah setuju dokumen hilang dari Console | ⏳ |
+| 5 | Batalkan lalu tekan Batal | Detail Pengajuan → Batalkan → tekan "Batal" | Dialog tertutup; data tetap ada, tidak ada perubahan | ⏳ |
+| 6 | Aksi pada pengajuan akun lain | Masuk akun kedua, coba ubah/batalkan pengajuan akun pertama via API | Ditolak (`permission-denied` / pesan bukan pemilik) | ⏳ |
+| 7 | Keputusan HC tersinkron | HC menyetujui pengajuan di Portal HC | Status berubah di aplikasi karyawan real-time (stream `pengajuan`) | ⏳ |
+
+> Kolom "Hasil nyata" diisi setelah pengujian di Chrome beserta screenshot
+> Console (collection `pengajuan` sebelum/sesudah ubah & batal).

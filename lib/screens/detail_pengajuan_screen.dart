@@ -1,19 +1,88 @@
 import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
 
 import '../core/theme.dart';
 import '../core/widgets.dart';
 import '../models/models.dart';
+import '../state/app_state.dart';
 import 'pengajuan_screen.dart';
 
 /// Detail satu pengajuan izin/cuti (halaman turunan — punya tombol kembali).
-class DetailPengajuanScreen extends StatelessWidget {
+///
+/// Minggu 11 — saat status masih Menunggu, halaman ini menyediakan menu
+/// aksi milik pemilik: Ubah (buka formulir mode ubah) dan Batalkan
+/// (hapus dokumen, SELALU lewat dialog konfirmasi). Data yang tampil
+/// dibaca ulang dari AppState agar hasil ubah langsung terlihat.
+class DetailPengajuanScreen extends StatefulWidget {
   const DetailPengajuanScreen({super.key, required this.pengajuan});
 
   final PengajuanIzin pengajuan;
 
   @override
+  State<DetailPengajuanScreen> createState() => _DetailPengajuanScreenState();
+}
+
+class _DetailPengajuanScreenState extends State<DetailPengajuanScreen> {
+  /// Konfirmasi sebelum menghapus — dua langkah sesuai modul Minggu 11:
+  /// minta persetujuan lewat `showDialog<bool>`, baru panggil delete().
+  Future<void> _konfirmasiBatalkan() async {
+    final p = widget.pengajuan;
+    final yakin = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Batalkan pengajuan?'),
+        content: Text(
+            '${p.jenis} pada ${p.periodeLabel} akan dihapus permanen dari '
+            'sistem. Tindakan ini tidak dapat dibatalkan.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Batal'),
+          ),
+          FilledButton(
+            style: FilledButton.styleFrom(
+              backgroundColor: T.red,
+            ),
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Ya, Batalkan'),
+          ),
+        ],
+      ),
+    );
+    if (yakin != true) return; // Batal = tidak ada perubahan apa pun.
+
+    if (!mounted) return;
+    final galat =
+        await context.read<AppState>().batalkanPengajuan(widget.pengajuan.id);
+    if (!mounted) return;
+    if (galat != null) {
+      showToast(context, galat, ToastKind.error);
+      return;
+    }
+    showToast(context, 'Pengajuan dibatalkan.', ToastKind.success);
+    Navigator.of(context).pop(); // kembali ke daftar riwayat
+  }
+
+  Future<void> _bukaFormUbah() async {
+    await Navigator.of(context).push(MaterialPageRoute(
+      builder: (_) => PengajuanScreen(pengajuanAwal: widget.pengajuan),
+    ));
+    // Setelah kembali dari formulir, detail dibangun ulang dengan data
+    // terbaru dari AppState (lihat build di bawah).
+    if (mounted) setState(() {});
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final p = pengajuan;
+    // Data terakhir dari AppState (stream Firestore) — bila pengajuan sudah
+    // dibatalkan/diubah di tempat lain, tampilan mengikuti kondisi nyata.
+    PengajuanIzin p = widget.pengajuan;
+    for (final x in context.watch<AppState>().pengajuan) {
+      if (x.id == widget.pengajuan.id) {
+        p = x;
+        break;
+      }
+    }
     final (pesan, warna, bg, border, ikon) = switch (p.status) {
       StatusPengajuan.disetujui => (
           'Pengajuan telah disetujui oleh HC. Kehadiran Anda pada tanggal '
@@ -144,6 +213,13 @@ class DetailPengajuanScreen extends StatelessWidget {
                     InfoTile(
                         label: 'Diproses oleh',
                         value: p.diprosesOleh ?? 'Belum diproses'),
+                    const Divider(height: 1),
+                    InfoTile(
+                        label: 'Diubah pada',
+                        value: p.diubahPada == null
+                            ? 'Belum pernah diubah'
+                            : '${tanggalSingkat(p.diubahPada!)} · '
+                                '${jamMenit(p.diubahPada!)}'),
                   ],
                 ),
               ),
@@ -250,6 +326,41 @@ class DetailPengajuanScreen extends StatelessWidget {
                     ],
                   ),
                 ),
+              // ── Menu aksi pemilik (Minggu 11) ────────────
+              // Aktif hanya untuk pengajuan milik sendiri yang masih
+              // Menunggu; setelah diputuskan HC, data terkunci.
+              if (p.bisaDiubah) ...[
+                const SizedBox(height: 20),
+                const SectionLabel('Aksi Pengajuan'),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppButton(
+                        label: 'Ubah',
+                        icon: Icons.edit_rounded,
+                        variant: AppButtonVariant.secondary,
+                        onPressed: _bukaFormUbah,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: AppButton(
+                        label: 'Batalkan',
+                        icon: Icons.delete_outline_rounded,
+                        variant: AppButtonVariant.danger,
+                        onPressed: _konfirmasiBatalkan,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Ubah atau pembatalan hanya dapat dilakukan selama '
+                  'pengajuan berstatus Menunggu.',
+                  style: TextStyle(fontSize: 11, color: T.textMuted),
+                ),
+              ],
               const SizedBox(height: 20),
               AppButton(
                 label: 'Tutup',
