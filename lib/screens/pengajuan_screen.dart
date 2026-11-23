@@ -155,6 +155,9 @@ class _PengajuanScreenState extends State<PengajuanScreen> {
   }
 
   Future<void> _kirim() async {
+    // Penangkal klik ganda: dua tap dalam frame yang sama masih lolos dari
+    // disabled tombol, jadi cegah langsung di awal metode.
+    if (_menyimpan) return;
     setState(() {
       _berhasil = false;
       _menyimpan = true;

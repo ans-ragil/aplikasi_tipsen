@@ -874,7 +874,14 @@ class AppState extends ChangeNotifier {
 
     try {
       final tersimpan = await layanan.tambahPengajuan(draf, uid);
-      _pengajuan.insert(0, tersimpan);
+      // Stream Firestore kerap mengirim snapshot lebih dulu (latency
+      // compensation). Timpa bila sudah ada agar tidak tampil dua kali.
+      final i = _pengajuan.indexWhere((p) => p.id == tersimpan.id);
+      if (i >= 0) {
+        _pengajuan[i] = tersimpan;
+      } else {
+        _pengajuan.insert(0, tersimpan);
+      }
       _simpan();
       notifyListeners();
       return null;
@@ -900,12 +907,14 @@ class AppState extends ChangeNotifier {
   }) async {
     final uid = _uid;
     final i = _pengajuan.indexWhere((p) => p.id == idPengajuan);
-    if (i < 0) return 'Pengajuan tidak ditemukan.';
-    if (!_pengajuan[i].bisaDiubah) {
-      return 'Pengajuan sudah diputuskan HC dan tidak dapat diubah lagi.';
-    }
-
+    // Pemeriksaan lokal hanya untuk mode tanpa Firebase; pada mode cloud,
+    // stream bisa saja sudah memperbarui/menghapus daftar lokal lebih dulu —
+    // biarkan lapisan layanan yang memeriksa pemilik & status.
     if (uid == null) {
+      if (i < 0) return 'Pengajuan tidak ditemukan.';
+      if (!_pengajuan[i].bisaDiubah) {
+        return 'Pengajuan sudah diputuskan HC dan tidak dapat diubah lagi.';
+      }
       _pengajuan[i] = _pengajuan[i].copyWith(
         jenis: jenis,
         tanggalMulai: mulai,
@@ -919,6 +928,10 @@ class AppState extends ChangeNotifier {
       return null;
     }
 
+    if (i >= 0 && !_pengajuan[i].bisaDiubah) {
+      return 'Pengajuan sudah diputuskan HC dan tidak dapat diubah lagi.';
+    }
+
     try {
       await layanan.ubahPengajuan(
         idPengajuan: idPengajuan,
@@ -930,14 +943,16 @@ class AppState extends ChangeNotifier {
         lampiran: lampiran,
       );
       // Optimistik: stream snapshot akan menegaskan nilai diubahPada.
-      _pengajuan[i] = _pengajuan[i].copyWith(
-        jenis: jenis,
-        tanggalMulai: mulai,
-        tanggalSelesai: selesai,
-        alasan: alasan,
-        lampiran: lampiran,
-        diubahPada: DateTime.now(),
-      );
+      if (i >= 0) {
+        _pengajuan[i] = _pengajuan[i].copyWith(
+          jenis: jenis,
+          tanggalMulai: mulai,
+          tanggalSelesai: selesai,
+          alasan: alasan,
+          lampiran: lampiran,
+          diubahPada: DateTime.now(),
+        );
+      }
       _simpan();
       notifyListeners();
       return null;
@@ -953,21 +968,27 @@ class AppState extends ChangeNotifier {
   Future<String?> batalkanPengajuan(String idPengajuan) async {
     final uid = _uid;
     final i = _pengajuan.indexWhere((p) => p.id == idPengajuan);
-    if (i < 0) return 'Pengajuan tidak ditemukan.';
-    if (!_pengajuan[i].bisaDiubah) {
-      return 'Pengajuan sudah diputuskan HC dan tidak dapat dibatalkan.';
-    }
 
     if (uid == null) {
+      if (i < 0) return 'Pengajuan tidak ditemukan.';
+      if (!_pengajuan[i].bisaDiubah) {
+        return 'Pengajuan sudah diputuskan HC dan tidak dapat dibatalkan.';
+      }
       _pengajuan.removeAt(i);
       _simpan();
       notifyListeners();
       return null;
     }
 
+    // Daftar lokal mungkin sudah diperbarui stream lebih dulu; cek status
+    // hanya bila item masih ada. Penghapusan divalidasi lapisan layanan.
+    if (i >= 0 && !_pengajuan[i].bisaDiubah) {
+      return 'Pengajuan sudah diputuskan HC dan tidak dapat dibatalkan.';
+    }
+
     try {
       await layanan.batalkanPengajuan(idPengajuan, uid);
-      _pengajuan.removeAt(i);
+      _pengajuan.removeWhere((p) => p.id == idPengajuan);
       _simpan();
       notifyListeners();
       return null;
