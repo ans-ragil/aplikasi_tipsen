@@ -196,7 +196,7 @@ dengan dirinya sendiri.
 | 1 | Ubah data valid | Detail Pengajuan (status Menunggu) → Ubah → ganti alasan/tanggal → Simpan Perubahan | Dokumen berubah; `diajukanPada` & `idPengguna` tetap; `diubahPada` terisi | ✅ teruji di Chrome — banner "Perubahan berhasil disimpan", detail menampilkan `Diubah pada: 25 Nov 2026 · 20:56` sementara `Diajukan pada` tetap (`docs/bukti-11-1-detail-diubah-pada.png`, `docs/bukti-11-1-form-ubah-terisi.png`) |
 | 2 | Ubah jadi periode tumpang tindih | Ubah pengajuan ke periode yang sama dengan pengajuan lain milik sendiri | Ditolak dengan pesan periode bertumpuk; data lama utuh | ✅ uji unit `tugas_minggu11_test.dart` kasus 2 — `OperasiDitolakException` "…periode yang bertumpuk…", data lama utuh |
 | 3 | Ubah/batalkan status terkunci | Coba aksi pada pengajuan berstatus Disetujui/Ditolak | Menu Aksi tidak tampil (`bisaDiubah`); bila dipaksa (API), ditolak Rules | ✅ uji unit kasus 3 — `bisaDiubah` false setelah Disetujui; ubah/batalkan lempar "sudah diputuskan HC" |
-| 4 | Batalkan dengan konfirmasi | Detail Pengajuan → Batalkan → dialog → "Ya, Batalkan" | Dialog muncul menyebut data; setelah setuju dokumen hilang dari Console | ✅ uji unit kasus 4 — dokumen hilang dari stream; panggilan ulang ditolak "tidak ditemukan" |
+| 4 | Batalkan dengan konfirmasi | Detail Pengajuan → Batalkan → dialog → "Ya, Batalkan" | Dialog muncul menyebut data; setelah setuju dokumen hilang dari Console | ✅ teruji di Chrome — dialog "Batalkan pengajuan?" menyebut Izin Sakit 26–27 Nov, toast "Pengajuan dibatalkan.", dokumen `ycRFw1gjYYzRSAo1Xx1` hilang dari Console (`docs/bukti-11-4-*.png`) |
 | 5 | Batalkan lalu tekan Batal | Detail Pengajuan → Batalkan → tekan "Batal" | Dialog tertutup; data tetap ada, tidak ada perubahan | ✅ uji unit kasus 5 — tanpa panggilan layanan, data tetap utuh |
 | 6 | Aksi pada pengajuan akun lain | Masuk akun kedua, coba ubah/batalkan pengajuan akun pertama via API | Ditolak (`permission-denied` / pesan bukan pemilik) | ✅ uji unit kasus 6 — "Anda bukan pemilik pengajuan ini…" untuk ubah & batalkan |
 | 7 | Keputusan HC tersinkron | HC menyetujui pengajuan di Portal HC | Status berubah di aplikasi karyawan real-time (stream `pengajuan`) | ✅ uji unit kasus 7 — stream karyawan menerima status Disetujui/Ditolak + alasan penolakan tanpa refresh |
@@ -207,6 +207,17 @@ Bukti uji otomatis (Chrome, 25 Nov 2026): pengiriman pengajuan baru berhasil
 (`docs/bukti-11-kirim-berhasil.png`) dan dua pengajuan tampil di Riwayat dengan
 status Menunggu (`docs/bukti-11-riwayat-2-pengajuan.png`). Kasus 2–7 diverifikasi
 lewat `flutter test` (`test/tugas_minggu11_test.dart`, 7 kasus — logika bisnis
-`pastikanBolehDiubah()` + cek tumpang tindih yang sama dengan versi Firestore);
-bukti sisi Console (keadaan collection `pengajuan` sebelum/sesudah ubah & batal,
-serta screenshot Rules ter-Publish) tetap diambil manual sebagai lampiran laporan.
+`pastikanBolehDiubah()` + cek tumpang tindih yang sama dengan versi Firestore).
+
+Bukti sisi Console (25 Nov 2026, manual):
+
+- **Rules Minggu 11 ter-Publish** — `docs/bukti-11-rules-terpublish.png`
+  (riwayat Publish 23 Nov 2026 + isi rules kepemilikan & peran HC).
+- **Kasus 1** — dokumen setelah diubah: `diubahPada` terisi, `diajukanPada` &
+  `idPengguna` utuh → `docs/bukti-11-1-detail-diubah-pada.png` (detail aplikasi)
+  dan screenshot Console dokumen Izin Keperluan Pribadi.
+- **Kasus 4** — alur batalkan lengkap: `docs/bukti-11-4-riwayat-sebelum-batal.png`
+  (3 entri) → `docs/bukti-11-4-console-dokumen-izin-sakit.png` (dokumen ada di
+  Console) → `docs/bukti-11-4-dialog-konfirmasi-batalkan.png` (dialog konfirmasi)
+  → `docs/bukti-11-4-riwayat-sesudah-batal.png` (toast "Pengajuan dibatalkan.")
+  → `docs/bukti-11-4-console-dokumen-hilang.png` (Console tinggal 1 dokumen).
